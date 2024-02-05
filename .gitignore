@@ -156,8 +156,6 @@ cython_debug/
 .python-version
 
 # Hydra
-!sarl/
-sarl/*
 !sarl/outputs/
 sarl/outputs/*
 !sarl/outputs/saved/
