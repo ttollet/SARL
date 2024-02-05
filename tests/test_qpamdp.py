@@ -9,57 +9,28 @@ from sarl.common.bester.common.wrappers import QPAMDPScaledParameterisedActionWr
 from sarl.common.bester.common.wrappers import ScaledStateWrapper
 
 
-# '''
-# def _run_agent_on_env(agent, env, steps=2):
-#     (state, _), info = env.reset()
-#     for _ in range(steps):
-#         action = agent.act(state)  # this is where you would insert your policy
-#         (state, _), reward, terminated, truncated, info = env.step(action)
+def test_qpamdp_goal(train_eps=1, max_steps=2, num_seeds=3):
+    '''Ensure Q-PAMDP learns within Goal'''
+    raise NotImplementedError
+#     for seed in range(num_seeds):
+#         # Env init
+#         env = gym.make("Goal-v0")
+#         env = RecordEpisodeStatistics(env, deque_size=max_steps)
+#         env.seed(seed)
+#         np.random.seed(seed)
 
-#         if terminated or truncated:
-#             (state, _), info = env.reset()
-#     env.close()
-# '''
+#         # Agent init
+#         agent = QPAMDPAgent(observation_space=env.observation_space.spaces[0],
+#                             action_space=env.action_space,
+#                             seed=seed,
+#                             print_freq=100
+#                             )
 
-
-# '''
-# from stable_baselines3.common.evaluation import evaluate_policy
-# from stable_baselines3.common.base_class import BaseAlgorithm
-# def _test_agent_on_env_sb3_style(env_name: str, algorithm: BaseAlgorithm, policy_name: str, save_name: str):
-#     # Based on example at https://stable-baselines3.readthedocs.io/en/master/guide/examples.html#basic-usage-training-saving-loading
-
-#     # Create environment
-#     env = gym.make(env_name)
-
-#     # Instantiate the agent
-#     model = algorithm(policy_name, env, verbose=1)
-#     # Train the agent and display a progress bar
-#     model.learn(total_timesteps=int(2e5), progress_bar=True)
-#     # Save the agent
-#     model.save(save_name)
-#     del model  # delete trained model to demonstrate loading
-
-#     # Load the trained agent
-#     # NOTE: if you have loading issue, you can pass `print_system_info=True`
-#     # to compare the system on which the model was trained vs the current one
-#     # model = DQN.load("dqn_lunar", env=env, print_system_info=True)
-#     model = algorithm.load(save_name, env=env)
-
-#     # Evaluate the agent
-#     # NOTE: If you use wrappers with your environment that modify rewards,
-#     #       this will be reflected here. To evaluate with original rewards,
-#     #       wrap environment in a "Monitor" wrapper before other wrappers.
-#     mean_reward, std_reward = evaluate_policy(
-#         model, model.get_env(), n_eval_episodes=10)
-
-#     # Enjoy trained agent
-#     vec_env = model.get_env()
-#     obs = vec_env.reset()
-#     for i in range(1000):
-#         action, _states = model.predict(obs, deterministic=True)
-#         obs, rewards, dones, info = vec_env.step(action)
-#         # vec_env.render("human")
-# '''
+#         # Training
+#         info_per_episode = agent.learn(env, train_eps, max_steps)
+#         returns = [info["episode"]["r"] for info in info_per_episode]
+#         env.close()
+#         assert returns[0] < returns[-1]
 
 
 def test_qpamdp_platform(train_eps=20, max_steps=201, scale=True):
@@ -122,24 +93,54 @@ def test_qpamdp_platform(train_eps=20, max_steps=201, scale=True):
         # assert returns[-1] > 0.2
 
 
-# def test_qpamdp_goal(train_eps=1, max_steps=2):
-#     '''Ensure Q-PAMDP learns within Goal'''
-#     for seed in [1, 2, 3]:
-#         # Env init
-#         env = gym.make("Goal-v0")
-#         env = RecordEpisodeStatistics(env, deque_size=max_steps)
-#         env.seed(seed)
-#         np.random.seed(seed)
+# '''
+# def _run_agent_on_env(agent, env, steps=2):
+#     (state, _), info = env.reset()
+#     for _ in range(steps):
+#         action = agent.act(state)  # this is where you would insert your policy
+#         (state, _), reward, terminated, truncated, info = env.step(action)
 
-#         # Agent init
-#         agent = QPAMDPAgent(observation_space=env.observation_space.spaces[0],
-#                             action_space=env.action_space,
-#                             seed=seed,
-#                             print_freq=100
-#                             )
+#         if terminated or truncated:
+#             (state, _), info = env.reset()
+#     env.close()
+# '''
 
-#         # Training
-#         info_per_episode = agent.learn(env, train_eps, max_steps)
-#         returns = [info["episode"]["r"] for info in info_per_episode]
-#         env.close()
-#         assert returns[0] < returns[-1]
+
+# '''
+# from stable_baselines3.common.evaluation import evaluate_policy
+# from stable_baselines3.common.base_class import BaseAlgorithm
+# def _test_agent_on_env_sb3_style(env_name: str, algorithm: BaseAlgorithm, policy_name: str, save_name: str):
+#     # Based on example at https://stable-baselines3.readthedocs.io/en/master/guide/examples.html#basic-usage-training-saving-loading
+
+#     # Create environment
+#     env = gym.make(env_name)
+
+#     # Instantiate the agent
+#     model = algorithm(policy_name, env, verbose=1)
+#     # Train the agent and display a progress bar
+#     model.learn(total_timesteps=int(2e5), progress_bar=True)
+#     # Save the agent
+#     model.save(save_name)
+#     del model  # delete trained model to demonstrate loading
+
+#     # Load the trained agent
+#     # NOTE: if you have loading issue, you can pass `print_system_info=True`
+#     # to compare the system on which the model was trained vs the current one
+#     # model = DQN.load("dqn_lunar", env=env, print_system_info=True)
+#     model = algorithm.load(save_name, env=env)
+
+#     # Evaluate the agent
+#     # NOTE: If you use wrappers with your environment that modify rewards,
+#     #       this will be reflected here. To evaluate with original rewards,
+#     #       wrap environment in a "Monitor" wrapper before other wrappers.
+#     mean_reward, std_reward = evaluate_policy(
+#         model, model.get_env(), n_eval_episodes=10)
+
+#     # Enjoy trained agent
+#     vec_env = model.get_env()
+#     obs = vec_env.reset()
+#     for i in range(1000):
+#         action, _states = model.predict(obs, deterministic=True)
+#         obs, rewards, dones, info = vec_env.step(action)
+#         # vec_env.render("human")
+# '''

@@ -14,7 +14,7 @@ from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 
 
 def test_pdqn_goal(train_episodes=1, max_steps=201, num_seeds=3):
-    '''Ensure Q-PAMDP learns within Goal'''
+    '''Ensure P-DQN learns within Goal'''
     for seed in range(num_seeds):
         np.random.seed(seed)
 
@@ -97,3 +97,8 @@ def test_pdqn_goal(train_episodes=1, max_steps=201, num_seeds=3):
         # Check
         returns = [info["episode"]["r"] for info in info_per_episode]
         assert returns[-1] > 0.2
+
+
+def test_pdqn_platform(train_episodes=1, max_steps=201, num_seeds=3):
+    '''Ensure P-DQN learns within Platform'''
+    raise NotImplementedError
