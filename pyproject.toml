@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sarl"
-version = "0.1.0-alpha"
+version = "0.1.1-alpha"
 description = "Algorithms and environments for structured action-space reinforcement learning."
 authors = ["Theodore Tollet <t.tollet@lancaster.ac.uk>"]
 
@@ -25,3 +25,10 @@ pylint = "^2.17.5"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# Addition here enables running without using python3 preface
+# entrypoints, etc []
+# sarl.trainer:main
+
+# [project.scripts]
+# train = "sarl.trainer:main"
