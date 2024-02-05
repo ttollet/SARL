@@ -1,14 +1,13 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
+from tqdm import tqdm
+
 from sarl.common.bester.agents.pdqn import PDQNAgent
-
 from sarl.common.bester.common.wrappers import ScaledStateWrapper, ScaledParameterisedActionWrapper
-
 from sarl.common.bester.environments.gym_goal.envs import GoalEnv
 from sarl.common.bester.common.goal_domain import GoalObservationWrapper
 from sarl.common.bester.common.goal_domain import GoalFlattenedActionWrapper
-
 from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
 
@@ -30,7 +29,7 @@ def _pad_action(act, act_param):
 def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1):
     '''Train to output a list of returns by timestep.'''
     info_per_episode = []
-    for _ in range(train_episodes):
+    for _ in tqdm(range(train_episodes)):
         (observation, steps), info = env.reset(seed=seed)
         observation = np.array(observation, dtype=np.float32, copy=False)
         act, act_param, all_action_parameters = agent.act(observation)
@@ -38,7 +37,8 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
 
         # Episode loop
         agent.start_episode()
-        for j in range(max_steps):
+        reward = 0
+        for j in tqdm(range(max_steps), desc=reward):
             (next_observation, steps), reward, terminated, truncated, info = env.step(action)
             next_observation = np.array(next_observation, dtype=np.float32, copy=False)
 
@@ -63,7 +63,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
 
 def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1]):
     '''Ensure P-DQN learns within Platform'''
-    for seed in seeds:
+    for seed in tqdm(seeds):
         # Environment initialisation
         env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed)
 
