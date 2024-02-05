@@ -1,6 +1,8 @@
 import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics
+from tqdm import tqdm
+
 from sarl.common.bester.agents.qpamdp import QPAMDPAgent
 from sarl.common.bester.agents.sarsa_lambda import SarsaLambdaAgent
 from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
