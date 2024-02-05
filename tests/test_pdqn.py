@@ -38,7 +38,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
         # Episode loop
         agent.start_episode()
         reward = 0
-        for j in tqdm(range(max_steps), desc=reward):
+        for j in range(max_steps):
             (next_observation, steps), reward, terminated, truncated, info = env.step(action)
             next_observation = np.array(next_observation, dtype=np.float32, copy=False)
 

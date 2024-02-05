@@ -154,3 +154,14 @@ cython_debug/
 # VSCode
 .vscode/
 .python-version
+
+# Hydra
+!sarl/
+sarl/*
+!sarl/outputs/
+sarl/outputs/*
+!sarl/outputs/saved/
+
+outputs/
+outputs/*
+outputs/saved/
