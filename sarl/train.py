@@ -1,6 +1,8 @@
 # python3 train.py +experiment=pdqn-platform
 # python3 train.py +experiment=pdqn-goal
 
+# tensorboard --logdir=outputs
+
 import hydra
 from hydra.utils import HydraConfig
 from omegaconf import DictConfig
