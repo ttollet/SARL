@@ -1,3 +1,5 @@
 # @package _global_
 algorithm: pdqn
 environment: platform
+parameters:
+  train_episodes: 20
