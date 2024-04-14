@@ -24,12 +24,12 @@ def test_converter_sample(max_steps:int=5, seed:int=42) -> None:
         discrete_action_space = mdp.action_space[0]
         action_parameter_space = mdp.action_space[1]
 
-        mdp.reset()
-        for i in range(max_steps):
-            if i % 2 == 0:
-                mdp.step(discrete_action_space.sample())
+        obs, info = mdp.reset()
+        for i in range(max_steps*2):
+            if mdp.expectingDiscreteAction():
+                obs, reward, terminated, truncated, info = mdp.step(discrete_action_space.sample())
             else:
-                mdp.step(action_parameter_space.sample())
+                obs, reward, terminated, truncated, info = mdp.step(action_parameter_space.sample())
     return None
 
 

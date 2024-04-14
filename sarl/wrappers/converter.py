@@ -4,28 +4,30 @@ from gymnasium import Env, Wrapper, spaces
 STEP_KEYS = ["obs", "reward", "terminated", "truncated", "info"]
 
 class PamdpToMdp(Wrapper):
-    def _expectingDiscreteAction(self):
+    def expectingDiscreteAction(self):
         return self.previous_step_output["obs"][0] == 0
 
     def __init__(self, env: Env):
         super().__init__(env)
 
-        # Redefine attributes
-        def augmentedObservationSpace(original_observation_space):
-            augmented_observation_space = spaces.Tuple((
-                spaces.Discrete(2),  # Awaiting discrete-action or action-parameter indicator
-                original_observation_space
-            ))
-            return augmented_observation_space
-        self.observation_space = augmentedObservationSpace(self.observation_space)
+        original_observation_space = self.observation_space
+        self.observation_space = spaces.Tuple((
+            spaces.Discrete(2),  # Awaiting discrete-action or action-parameter indicator
+            original_observation_space
+        ))
 
-        # Track previous observation
-        self.previous_step_output = {key: (lambda x: (0, None) if key=="obs" else None)(key) for key in STEP_KEYS}
+        self.previous_step_output = {key: None for key in STEP_KEYS}
         self.discrete_action_choice = None
+
+    
+    def reset(self):
+        obs, info = super().reset()
+        self.previous_step_output["obs"] = (0, obs)
+        return (0, obs), info
 
 
     def step(self, partial_action):
-        if self._expectingDiscreteAction():
+        if self.expectingDiscreteAction():
             assert type(partial_action) is np.int64
             self.discrete_action_choice = partial_action
             obs = (1, self.previous_step_output["obs"][1])
