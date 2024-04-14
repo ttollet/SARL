@@ -14,6 +14,7 @@ from sarl.common.bester.common.goal_domain import GoalFlattenedActionWrapper
 from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
 
+from torch.utils.tensorboard import SummaryWriter
 
 def _make_env(env_name: str, max_steps: int, seed: int):
     env = gym.make(env_name)
@@ -29,10 +30,14 @@ def _pad_action(act, act_param):
     return (act, params)
 
 
-def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1):
+def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None):
     '''Train to output a list of returns by timestep.'''
+
+    if output_dir:
+        writer = SummaryWriter(log_dir=output_dir)
+
     info_per_episode = []
-    for _ in tqdm(range(train_episodes)):
+    for episode_index in tqdm(range(train_episodes)):
         (observation, steps), info = env.reset(seed=seed)
         observation = np.array(observation, dtype=np.float32, copy=False)
         act, act_param, all_action_parameters = agent.act(observation)
@@ -41,7 +46,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
         # Episode loop
         agent.start_episode()
         reward = 0
-        for j in range(max_steps):
+        for timestep in range(max_steps):
             (next_observation, steps), reward, terminated, truncated, info = env.step(action)
             next_observation = np.array(next_observation, dtype=np.float32, copy=False)
 
@@ -60,13 +65,17 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
                 break
         agent.end_episode()
         info_per_episode.append(info)
+        if output_dir:
+            writer.add_scalar("Return", info["episode"]["r"], episode_index)
     env.close()
+    if output_dir:
+        writer.close()
     returns = [info["episode"]["r"] for info in info_per_episode]
     print (f"Start: {returns[0]} | End: {returns[-1]}")
     return returns
 
 
-def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1]):
+def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True):
     '''Ensure P-DQN learns within Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
@@ -122,14 +131,14 @@ def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1]):
         agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
         # Training | TODO: Simplify
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir)
 
         # Check
         return returns
     
 
 
-def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1]):
+def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True):
     '''Ensure P-DQN learns within Goal'''
     for seed in seeds:
 
@@ -189,5 +198,5 @@ def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1]):
         agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
         # Training | TODO: Simplify
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir)
         return returns
