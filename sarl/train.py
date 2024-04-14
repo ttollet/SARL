@@ -1,5 +1,6 @@
 # python3 train.py +experiment=pdqn-platform
 # python3 train.py +experiment=pdqn-goal
+# python3 train.py +experiment=pdqn-platform parameters.train_episodes=50000
 
 # tensorboard --logdir=outputs
 
