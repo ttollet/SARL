@@ -19,8 +19,9 @@ class HybridPolicy:
             self.continuousPolicy = continuousAgent.predict
 
     def learn(self, total_timesteps: int):
-        for agent_type in self.agent.keys:
-            self.agent[agent_type].learn(total_timesteps)
+        for agent_type in self.agent.keys():
+            if self.agent[agent_type] is not None:
+                self.agent[agent_type].learn(total_timesteps)
 
     def predict(self, obs):
         if obs[0]==0:
