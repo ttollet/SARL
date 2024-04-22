@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics  # Note stats
 
-from sarl.wrappers.converter import PamdpToMdp, HybridPolicy
+from sarl.environments.wrappers.converter import PamdpToMdp, HybridPolicy
 from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 from sarl.common.bester.environments.gym_goal.envs import GoalEnv
 

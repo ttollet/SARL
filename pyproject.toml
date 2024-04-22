@@ -5,8 +5,8 @@ description = "Algorithms and environments for structured action-space reinforce
 authors = ["Theodore Tollet <t.tollet@lancaster.ac.uk>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-numpy = "^1.24.3"
+python = "^3.9, <3.12"
+numpy = "^1.24.4"
 pygame = "^2.4.0"
 numba = "^0.57.0"
 gymnasium = "^0.28.1"
@@ -29,7 +29,7 @@ build-backend = "poetry.core.masonry.api"
 
 # Addition here enables running without using python3 preface
 # entrypoints, etc []
-# sarl.trainer:main
+# sarl.train:main
 
 # [project.scripts]
-# train = "sarl.trainer:main"
+# train = "sarl.train:main"
