@@ -125,7 +125,7 @@ class GoalEnv(gym.Env):
             reward = -self.ball.goal_distance()
             end_episode = True
             state = self.get_state()
-            return (state, 0), reward, end_episode, {}
+            return (state, 0), reward, end_episode, False, {}  # TODO: Differentiate between termination and truncation
         end_episode = False
         run = True
         reward = 0.

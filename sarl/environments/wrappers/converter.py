@@ -1,20 +1,32 @@
 import numpy as np
 from gymnasium import Env, Wrapper, spaces
 
-STEP_KEYS = ["obs", "reward", "terminated", "truncated", "info"]
-
-
 class HybridPolicy:
     # For combining two separate policies for use with the converter
-    def __init__(self, discretePolicy, continuousPolicy) -> None:
-        self.discretePolicy = discretePolicy
-        self.continuousPolicy = continuousPolicy
+    def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None) -> None:
+        self.agent = {key: None for key in ["discrete", "continuous"]}
 
-    def act(self, obs):
+        if discretePolicy is not None:
+            self.discretePolicy = discretePolicy
+        elif discreteAgent is not None:
+            self.agent["discrete"] = discreteAgent
+            self.discretePolicy = discreteAgent.predict
+
+        if continuousPolicy is not None:
+            self.continuousPolicy = continuousPolicy
+        elif continuousAgent is not None:
+            self.agent["continuous"] = continuousAgent
+            self.continuousPolicy = continuousAgent.predict
+
+    def learn(self, total_timesteps: int):
+        for agent_type in self.agent.keys:
+            self.agent[agent_type].learn(total_timesteps)
+
+    def predict(self, obs):
         if obs[0]==0:
             return self.discretePolicy(obs[1])
         else:
-            assert obs[0]==1  # Comment out for faster computation
+            assert obs[0]==1
             return self.continuousPolicy(obs[1])
         
 
@@ -60,6 +72,7 @@ class PamdpToMdpView(Env):
 
 
 
+STEP_KEYS = ["obs", "reward", "terminated", "truncated", "info"]
 class PamdpToMdp(Wrapper):
     def __init__(self, env: Env):
         super().__init__(env)
@@ -74,7 +87,8 @@ class PamdpToMdp(Wrapper):
         self.action_parameter_space = self.action_space[1]
         # self.action_space = 
 
-        self.previous_step_output = {key: None for key in STEP_KEYS}
+        self.previous_step_output = {key: None for key in STEP_KEYS[1:]}
+        self.previous_step_output[STEP_KEYS[0]] = [0, None]  # Start with discrete action
         self.discrete_action_choice = None
 
 
