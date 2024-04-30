@@ -23,7 +23,10 @@ def main(job_config: DictConfig):
             "pdqn": {
                 "platform": test_pdqn_platform,
                 "goal": test_pdqn_goal
-            }
+            }#,
+            # "ppo-ppo": {
+            #     "platform": ppo-ppo_platform
+            # }
         }[job_config["algorithm"]][job_config["environment"]]
     except:
         raise NotImplementedError

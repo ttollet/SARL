@@ -1,5 +1,9 @@
+from typing import Any
+
 import numpy as np
 from gymnasium import Env, Wrapper, spaces
+from gymnasium.core import ObsType
+from stable_baselines3.common.base_class import BaseAlgorithm
 
 class HybridPolicy:
     # For combining two separate policies for use with the converter
@@ -18,10 +22,14 @@ class HybridPolicy:
             self.agent["continuous"] = continuousAgent
             self.continuousPolicy = continuousAgent.predict
 
-    def learn(self, total_timesteps: int):
+    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
         for agent_type in self.agent.keys():
-            if self.agent[agent_type] is not None:
-                self.agent[agent_type].learn(total_timesteps)
+            agent = self.agent[agent_type]
+            if agent is not None:
+                if isinstance(agent, BaseAlgorithm):
+                    self.agent[agent_type].learn(total_timesteps, callback, log_interval, tb_log_name, reset_num_timesteps, progress_bar)  # TODO: Share timestep number
+                else:
+                    raise NotImplementedError
 
     def predict(self, obs):
         if obs[0]==0:
@@ -62,8 +70,8 @@ class PamdpToMdpView(Env):
         obs, reward, terminated, truncated, info = self.parent.step(action)
         return self.parent.step(self.internal_policy(obs))
 
-    def reset(self):
-        return self.parent.reset()
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
+        return self.parent.reset(seed=seed, options=options)
     
     def render(self):
         return self.parent.render()
@@ -101,8 +109,8 @@ class PamdpToMdp(Wrapper):
         return self.previous_step_output["obs"][0] == 0
 
     
-    def reset(self):
-        obs, info = super().reset()
+    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
+        obs, info = super().reset(seed=seed, options=options)
         self.previous_step_output["obs"] = (0, obs)
         return (0, obs), info
 
