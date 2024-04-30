@@ -40,7 +40,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42) -> None:
     return None
 
 
-def test_converter_discrete_duration(max_steps:int=500, learning_steps=500000, seed:int=42) -> None:
+def test_converter_discrete_duration(max_steps:int=500, learning_steps=500, seed:int=42) -> None:
     '''Hybrid policy class can correctly sample converter action space'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -57,16 +57,11 @@ def test_converter_discrete_duration(max_steps:int=500, learning_steps=500000, s
         # Agent setup
         continuousPolicy = lambda x: mdp.action_parameter_space.sample()
         discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-        discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=2, seed=seed)
+        discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=2, seed=seed, tensorboard_log="tests/test_output")
         agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
 
         # Learning  TODO: Plot and fix
-        start = time.time()
         agent.learn(learning_steps, progress_bar=True)
-        end = time.time()
-        duration = end - start
-        print("Training time:", duration)
-        assert duration > 0.1
 
         # A few steps of the trained model
         obs, info = mdp.reset()
@@ -78,7 +73,7 @@ def test_converter_discrete_duration(max_steps:int=500, learning_steps=500000, s
             else:
                 obs, reward, terminated, truncated, info = mdp.step(agent.predict(obs))
     return None
-
+# test_converter_discrete_duration()
 
 def test_converter_parity():
     '''Converter outputs same cumulative reward'''

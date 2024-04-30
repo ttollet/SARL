@@ -68,10 +68,15 @@ class PamdpToMdpView(Env):
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.parent.step(action)
-        return self.parent.step(self.internal_policy(obs))
+        view_obs = obs[1]
+        obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
+        view_obs = obs[1]
+        return view_obs, reward, terminated, truncated, info
 
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
-        return self.parent.reset(seed=seed, options=options)
+        obs, info = self.parent.reset(seed=seed, options=options)
+        view_obs = obs[1]
+        return view_obs, info
     
     def render(self):
         return self.parent.render()
