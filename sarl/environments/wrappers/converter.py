@@ -22,22 +22,29 @@ class HybridPolicy:
             self.agent["continuous"] = continuousAgent
             self.continuousPolicy = continuousAgent.predict
 
-    def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
+    def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
         for agent_type in self.agent.keys():
             agent = self.agent[agent_type]
             if agent is not None:
                 if isinstance(agent, BaseAlgorithm):
-                    self.agent[agent_type].learn(total_timesteps, callback, log_interval, tb_log_name, reset_num_timesteps, progress_bar)  # TODO: Share timestep number
+                    self.agent[agent_type].learn(total_timesteps, callback, log_interval, (tb_log_name+"_"+agent_type), reset_num_timesteps, progress_bar)  # TODO: Share timestep number
                 else:
                     raise NotImplementedError
 
     def predict(self, obs):
         if obs[0]==0:
-            return self.discretePolicy(obs[1])
+            policy = self.discretePolicy
         else:
             assert obs[0]==1
-            return self.continuousPolicy(obs[1])
-        
+            policy = self.continuousPolicy
+        if policy.__qualname__ == "BaseAlgorithm.predict":  # If the policy is the method of a StableBaselines3 BaseAlgorithm object
+            prediction = policy(obs[1])[0]  # Since prediction[1] is irrelevant unused hidden state information
+            if obs[0]==0:
+                return int(prediction)
+            else:
+                return prediction
+        else:
+            return policy(obs[1])
 
 class PamdpToMdpView(Env):
     def __init__(self, parent: Env, action_space_is_discrete: bool, internal_policy=None) -> None:
@@ -53,10 +60,7 @@ class PamdpToMdpView(Env):
         self.np_random = parent.np_random
 
         if internal_policy == None:
-            if action_space_is_discrete:
-                self.internal_policy = self.action_parameter_space.sample
-            else:
-                self.internal_policy = self.action_parameter_space.sample
+            self.internal_policy = self.action_space.sample
         else:
             self.internal_policy = internal_policy
         self.action_space_is_discrete = action_space_is_discrete
@@ -122,13 +126,13 @@ class PamdpToMdp(Wrapper):
 
     def step(self, partial_action):
         if self.expectingDiscreteAction():
-            assert type(partial_action) is np.int64
+            assert partial_action in self.discrete_action_space
             self.discrete_action_choice = partial_action
             obs = (1, self.previous_step_output["obs"][1])
             reward = 0
             terminated, truncated, info = (self.previous_step_output[key] for key in STEP_KEYS[2:])
         else:
-            assert type(partial_action) is tuple
+            assert partial_action in self.action_parameter_space
             action = (self.discrete_action_choice, partial_action)
             obs, reward, terminated, truncated, info = self.env.step(action)
             obs = (0, obs)

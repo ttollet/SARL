@@ -3,6 +3,7 @@ import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics  # Note stats
 from gymnasium import ObservationWrapper
 from stable_baselines3 import PPO
+from stable_baselines3.common.monitor import Monitor
 
 import time
 
@@ -40,7 +41,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42) -> None:
     return None
 
 
-def test_converter_discrete_duration(max_steps:int=500, learning_steps=500, seed:int=42) -> None:
+def test_converter_discrete_duration(max_steps:int=250, learning_steps:int=250*1000, seed:int=42) -> None:  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can correctly sample converter action space'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -57,10 +58,9 @@ def test_converter_discrete_duration(max_steps:int=500, learning_steps=500, seed
         # Agent setup
         continuousPolicy = lambda x: mdp.action_parameter_space.sample()
         discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-        discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=2, seed=seed, tensorboard_log="tests/test_output")
+        discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=("tests/test_output/ppo_"+env_name.lower()))
         agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
 
-        # Learning  TODO: Plot and fix
         agent.learn(learning_steps, progress_bar=True)
 
         # A few steps of the trained model
@@ -73,7 +73,6 @@ def test_converter_discrete_duration(max_steps:int=500, learning_steps=500, seed
             else:
                 obs, reward, terminated, truncated, info = mdp.step(agent.predict(obs))
     return None
-# test_converter_discrete_duration()
 
 def test_converter_parity():
     '''Converter outputs same cumulative reward'''
