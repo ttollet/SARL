@@ -163,3 +163,4 @@ sarl/outputs/*
 outputs/
 outputs/*
 outputs/saved/
+.DS_Store
