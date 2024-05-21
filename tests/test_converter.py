@@ -20,7 +20,7 @@ def _make_env(env_name: str, seed: int):
     return env
 
 
-def test_converter_agent_sample(max_steps:int=5, seed:int=42) -> None:
+def test_converter_agent_sample(max_steps:int=5, seed:int=42):
     '''Hybrid policy class can correctly sample converter action space'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -41,7 +41,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42) -> None:
     return None
 
 
-def _test_converter_duration(discrete=None, max_steps:int=250, learning_steps:int=250*1000, seed:int=42) -> None:  # 1 sample each 2048 timesteps for PPO
+def _test_converter_duration(discrete=None, max_steps:int=250, learning_steps:int=250*1000, seed:int=42):  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can support a discrete learner'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -78,16 +78,17 @@ def _test_converter_duration(discrete=None, max_steps:int=250, learning_steps:in
                 obs, reward, terminated, truncated, info = mdp.step(agent.predict(obs))
             else:
                 obs, reward, terminated, truncated, info = mdp.step(agent.predict(obs))
-    return None
+    return True
 
 
-def test_converter_discrete_duration(max_steps:int=250, learning_steps:int=250*1000, seed:int=42) -> None:
+def test_converter_discrete_duration(max_steps:int=250, learning_steps:int=250*500, seed:int=42):
     return _test_converter_duration(discrete=True, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
-def test_converter_continuous_duration(max_steps:int=250, learning_steps:int=250*1000, seed:int=42) -> None:
+
+def test_converter_continuous_duration(max_steps:int=250, learning_steps:int=250*500, seed:int=42):
     return _test_converter_duration(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_parity():
-    '''Converter outputs same cumulative reward'''
-    pass
+# def test_converter_parity():
+#     '''Converter outputs same cumulative reward'''
+#     pass

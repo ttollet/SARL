@@ -58,26 +58,36 @@ class PamdpToMdpView(Env):
         self.spec = parent.spec
         self.metadata = parent.metadata
         self.np_random = parent.np_random
+        self.parent = parent
 
         if internal_policy == None:
             self.internal_policy = self.action_space.sample
         else:
             self.internal_policy = internal_policy
         self.action_space_is_discrete = action_space_is_discrete
-        self.parent = parent
         if action_space_is_discrete:
             assert parent.expectingDiscreteAction()
         else:
+            view_obs = self.parent.previous_step_output["obs"][1]
+            obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
             assert not parent.expectingDiscreteAction()
 
     def step(self, action):
-        obs, reward, terminated, truncated, info = self.parent.step(action)
-        view_obs = obs[1]
-        obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
-        view_obs = obs[1]
+        if self.action_space_is_discrete:
+            obs, reward, terminated, truncated, info = self.parent.step(action)
+            view_obs = obs[1]
+            obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
+            view_obs = obs[1]
+        else:
+            view_obs = self.parent.previous_step_output["obs"][1]
+            obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
+            view_obs = obs[1]
+            obs, reward, terminated, truncated, info = self.parent.step(action)
+            view_obs = obs[1]
+            
         return view_obs, reward, terminated, truncated, info
 
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
+    def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = self.parent.reset(seed=seed, options=options)
         view_obs = obs[1]
         return view_obs, info
@@ -118,7 +128,7 @@ class PamdpToMdp(Wrapper):
         return self.previous_step_output["obs"][0] == 0
 
     
-    def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
+    def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = super().reset(seed=seed, options=options)
         self.previous_step_output["obs"] = (0, obs)
         return (0, obs), info
