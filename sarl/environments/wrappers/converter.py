@@ -3,6 +3,7 @@ from typing import Any
 import numpy as np
 from gymnasium import Env, Wrapper, spaces
 from gymnasium.core import ObsType
+from gymnasium.spaces.utils import flatten_space
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 class HybridPolicy:
@@ -32,14 +33,14 @@ class HybridPolicy:
                     raise NotImplementedError
 
     def predict(self, obs):
-        if obs[0]==0:
+        if obs[0]==-1:
             policy = self.discretePolicy
         else:
-            assert obs[0]==1
+            assert obs[0] > -1
             policy = self.continuousPolicy
         if policy.__qualname__ == "BaseAlgorithm.predict":  # If the policy is the method of a StableBaselines3 BaseAlgorithm object
             prediction = policy(obs[1])[0]  # Since prediction[1] is irrelevant unused hidden state information
-            if obs[0]==0:
+            if obs[0]==-1:
                 return int(prediction)
             else:
                 return prediction
@@ -47,12 +48,23 @@ class HybridPolicy:
             return policy(obs[1])
 
 class PamdpToMdpView(Env):
-    def __init__(self, parent: Env, action_space_is_discrete: bool, internal_policy=None) -> None:
+    def __init__(self, parent:Env, action_space_is_discrete:bool, flatten_continuous_actions:bool=True, internal_policy=None) -> None:
+        """Initialise an MDP to provide a method of only taking either discrete actions or action-parameters, whilst an internal policy handles the unchosen component.
+
+        Args:
+            parent (Env): PAMDP which this artificial MDP interacts with.
+            action_space_is_discrete (bool): Whether this MDP is intended for a discrete or continuous policy.
+            flatten_continuous_actions (bool, optional): To improve compatability. Defaults to True.
+            internal_policy (_type_, optional): Specify policy to handle non-agent action component selection. Defaults to None (resulting in a random policy).
+        """
+
         super().__init__()
         if action_space_is_discrete:
             self.action_space = parent.discrete_action_space
         else:
             self.action_space = parent.action_parameter_space
+            if flatten_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
+                self.action_space = flatten_space(self.action_space)  # Requires effort to restructure output later
         self.observation_space = parent.observation_space[1]
         self.reward_range = parent.reward_range  # TODO: Amend in future
         self.spec = parent.spec
@@ -61,7 +73,10 @@ class PamdpToMdpView(Env):
         self.parent = parent
 
         if internal_policy == None:
-            self.internal_policy = self.action_space.sample
+            if action_space_is_discrete:
+                self.internal_policy = lambda obs: parent.action_parameter_space.sample()
+            else:
+                self.internal_policy = lambda obs: parent.discrete_action_space.sample()
         else:
             self.internal_policy = internal_policy
         self.action_space_is_discrete = action_space_is_discrete
@@ -89,7 +104,7 @@ class PamdpToMdpView(Env):
 
     def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = self.parent.reset(seed=seed, options=options)
-        view_obs = obs[1]
+        view_obs = obs[0] if self.action_space_is_discrete else obs[1]
         return view_obs, info
     
     def render(self):
@@ -116,7 +131,7 @@ class PamdpToMdp(Wrapper):
         # self.action_space = 
 
         self.previous_step_output = {key: None for key in STEP_KEYS[1:]}
-        self.previous_step_output[STEP_KEYS[0]] = [0, None]  # Start with discrete action
+        self.previous_step_output[STEP_KEYS[0]] = [-1, None]  # Start with discrete action
         self.discrete_action_choice = None
 
 
@@ -125,27 +140,29 @@ class PamdpToMdp(Wrapper):
 
 
     def expectingDiscreteAction(self):
-        return self.previous_step_output["obs"][0] == 0
+        assert -1 not in self.discrete_action_space
+        return self.previous_step_output["obs"][0] == -1  # Since discrete actions are indicated >=0
 
     
     def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = super().reset(seed=seed, options=options)
-        self.previous_step_output["obs"] = (0, obs)
-        return (0, obs), info
+        converted_obs = (-1, obs)  # Indicator, obs
+        self.previous_step_output["obs"] = converted_obs
+        return converted_obs, info
 
 
     def step(self, partial_action):
         if self.expectingDiscreteAction():
             assert partial_action in self.discrete_action_space
             self.discrete_action_choice = partial_action
-            obs = (1, self.previous_step_output["obs"][1])
+            obs = (partial_action, self.previous_step_output["obs"][1])
             reward = 0
             terminated, truncated, info = (self.previous_step_output[key] for key in STEP_KEYS[2:])
         else:
             assert partial_action in self.action_parameter_space
             action = (self.discrete_action_choice, partial_action)
             obs, reward, terminated, truncated, info = self.env.step(action)
-            obs = (0, obs)
+            obs = (-1, obs)
         step_output = obs, reward, terminated, truncated, info
         self.previous_step_output = {key: val for (key, val) in list(zip(STEP_KEYS, step_output))}
         return step_output

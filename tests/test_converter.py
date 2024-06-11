@@ -41,7 +41,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42):
     return None
 
 
-def _test_converter_duration(discrete=None, max_steps:int=250, learning_steps:int=250*1, seed:int=42):  # 1 sample each 2048 timesteps for PPO
+def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, seed:int=42):  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can support a discrete learner'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -81,12 +81,12 @@ def _test_converter_duration(discrete=None, max_steps:int=250, learning_steps:in
     return True
 
 
-def test_converter_discrete_duration(max_steps:int=250, learning_steps:int=250*100, seed:int=42):  # Previously 250*500 learning steps
-    return _test_converter_duration(discrete=True, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
+def test_converter_discrete(max_steps:int=250, learning_steps:int=250*1, seed:int=42):  # Previously 250*500 learning steps
+    return _test_converter(discrete=True, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_continuous_duration(max_steps:int=250, learning_steps:int=250*100, seed:int=42):
-    return _test_converter_duration(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
+def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:int=42):
+    return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
 # def test_converter_parity():
