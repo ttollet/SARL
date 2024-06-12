@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 from gymnasium import Env, Wrapper, spaces
 from gymnasium.core import ObsType
-from gymnasium.spaces.utils import flatten_space
+from gymnasium.spaces.utils import flatten_space, unflatten
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 class HybridPolicy:
@@ -59,18 +59,21 @@ class PamdpToMdpView(Env):
         """
 
         super().__init__()
-        if action_space_is_discrete:
-            self.action_space = parent.discrete_action_space
-        else:
-            self.action_space = parent.action_parameter_space
-            if flatten_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
-                self.action_space = flatten_space(self.action_space)  # Requires effort to restructure output later
+
+        self.flatten_continuous_actions = flatten_continuous_actions
         self.observation_space = parent.observation_space[1]
         self.reward_range = parent.reward_range  # TODO: Amend in future
         self.spec = parent.spec
         self.metadata = parent.metadata
         self.np_random = parent.np_random
         self.parent = parent
+
+        if action_space_is_discrete:
+            self.action_space = parent.discrete_action_space
+        else:
+            self.action_space = parent.action_parameter_space
+            if self.flatten_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
+                self.action_space = flatten_space(self.action_space)  # Requires effort to restructure output later
 
         if internal_policy == None:
             if action_space_is_discrete:
@@ -80,6 +83,7 @@ class PamdpToMdpView(Env):
         else:
             self.internal_policy = internal_policy
         self.action_space_is_discrete = action_space_is_discrete
+
         if action_space_is_discrete:
             assert parent.expectingDiscreteAction()
         else:
@@ -97,6 +101,8 @@ class PamdpToMdpView(Env):
             view_obs = self.parent.previous_step_output["obs"][1]
             obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
             view_obs = obs[1]
+            if self.flatten_continuous_actions:
+                action = unflatten(self.parent.action_parameter_space, action)
             obs, reward, terminated, truncated, info = self.parent.step(action)
             view_obs = obs[1]
             
