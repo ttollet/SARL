@@ -165,7 +165,9 @@ class PamdpToMdp(Wrapper):
             reward = 0
             terminated, truncated, info = (self.previous_step_output[key] for key in STEP_KEYS[2:])
         else:
-            assert partial_action in self.action_parameter_space
+            if partial_action not in self.action_parameter_space:
+                # Assume flattened and unflatten
+                partial_action = unflatten(self.action_parameter_space, partial_action)
             action = (self.discrete_action_choice, partial_action)
             obs, reward, terminated, truncated, info = self.env.step(action)
             obs = (-1, obs)

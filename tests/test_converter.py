@@ -59,13 +59,28 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
         if discrete==True:
             continuousPolicy = lambda x: mdp.action_parameter_space.sample()
             discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-            discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=("tests/test_output/discrete_learning/ppo_"+env_name.lower()))
+            log_dir = f"tests/test_output/discrete/ppo/{env_name.lower()}/{str(learning_steps)}steps"
+            discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
-        else:
+        elif discrete==False:
             discretePolicy = lambda x: mdp.discrete_action_space.sample()
             continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy)
-            continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=("tests/test_output/continuous_learning/ppo_"+env_name.lower()))
+            log_dir = f"tests/test_output/continuous/ppo/{env_name.lower()}/{str(learning_steps)}steps"
+            continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
+        else:
+            continuousActionMDP:PPO = None # To be overwritten later and hopefully have that affect dependant objects
+            discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousAgent.predict)
+
+            log_dir_discrete = f"tests/test_output/hybrid/ppo-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
+            log_dir_continuous = f"tests/test_output/hybrid/ppo-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
+
+            discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
+
+            continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discreteAgent.predict)
+            continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous)
+
+            agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent)
 
         agent.learn(learning_steps, progress_bar=True)
 
@@ -85,8 +100,12 @@ def test_converter_discrete(max_steps:int=250, learning_steps:int=250*1, seed:in
     return _test_converter(discrete=True, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:int=42):
+def test_converter_continuous(max_steps:int=250, learning_steps:int=250*500, seed:int=42):
     return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
+
+
+def test_converter_both(max_steps:int=250, learning_steps:int=250*1, seed:int=42):
+    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
 # def test_converter_parity():
