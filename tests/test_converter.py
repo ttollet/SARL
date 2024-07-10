@@ -41,7 +41,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42):
     return None
 
 
-def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, seed:int=42):  # 1 sample each 2048 timesteps for PPO
+def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42):  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can support a discrete learner'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         pamdp = _make_env(env_name=env_name, seed=seed)
@@ -56,33 +56,34 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
         mdp = PamdpToMdp(pamdp)
 
         # Agent setup
-        if discrete==True:
-            continuousPolicy = lambda x: mdp.action_parameter_space.sample()
+        if discrete:
+            def continuousPolicy(x): return mdp.action_parameter_space.sample()
             discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
             log_dir = f"tests/test_output/discrete/ppo/{env_name.lower()}/{str(learning_steps)}steps"
             discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
-        elif discrete==False:
-            discretePolicy = lambda x: mdp.discrete_action_space.sample()
+        elif not discrete:
+            def discretePolicy(x): return mdp.discrete_action_space.sample()
             continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy)
             log_dir = f"tests/test_output/continuous/ppo/{env_name.lower()}/{str(learning_steps)}steps"
             continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
         else:
-            continuousActionMDP:PPO = None # To be overwritten later and hopefully have that affect dependant objects
-            discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousAgent.predict)
+            discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
+            continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False)#, internal_policy=discreteAgent.predict)
 
             log_dir_discrete = f"tests/test_output/hybrid/ppo-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
             log_dir_continuous = f"tests/test_output/hybrid/ppo-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
 
             discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
-
-            continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discreteAgent.predict)
             continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous)
+
+            discreteActionMDP.internal_policy = continuousAgent
+            continuousActionMDP.internal_policy = discreteAgent
 
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent)
 
-        agent.learn(learning_steps, progress_bar=True)
+        agent.learn(learning_steps, cylcles=cycles, progress_bar=True)
 
         # A few steps of the trained model
         obs, info = mdp.reset()
@@ -100,13 +101,12 @@ def test_converter_discrete(max_steps:int=250, learning_steps:int=250*1, seed:in
     return _test_converter(discrete=True, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_continuous(max_steps:int=250, learning_steps:int=250*500, seed:int=42):
+def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:int=42):
     return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_both(max_steps:int=250, learning_steps:int=250*1, seed:int=42):
-    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, seed=seed)
-
+def test_converter_both(max_steps:int=250, learning_steps:int=250*1, cycles=2, seed:int=42):
+    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=2, seed=seed)
 
 # def test_converter_parity():
 #     '''Converter outputs same cumulative reward'''

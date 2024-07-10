@@ -23,14 +23,19 @@ class HybridPolicy:
             self.agent["continuous"] = continuousAgent
             self.continuousPolicy = continuousAgent.predict
 
-    def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
-        for agent_type in self.agent.keys():
-            agent = self.agent[agent_type]
-            if agent is not None:
-                if isinstance(agent, BaseAlgorithm):
-                    self.agent[agent_type].learn(total_timesteps, callback, log_interval, (tb_log_name+"_"+agent_type), reset_num_timesteps, progress_bar)  # TODO: Share timestep number
-                else:
-                    raise NotImplementedError
+    def learn(self, total_timesteps, cycles=1, callback=None, log_interval=1, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
+        assert cycles >= 1
+        if cycles > 1:
+            assert total_timesteps % cycles == 0
+        timesteps_per_agent = total_timesteps / cycles / len(self.agent.keys())
+        for _ in range(cycles):
+            for agent_type in self.agent.keys():
+                agent = self.agent[agent_type]
+                if agent is not None:
+                    if isinstance(agent, BaseAlgorithm):
+                        self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval, (tb_log_name+"_"+agent_type), reset_num_timesteps, progress_bar)  # TODO: Share timestep number
+                    else:
+                        raise NotImplementedError
 
     def predict(self, obs):
         if obs[0]==-1:
@@ -75,7 +80,7 @@ class PamdpToMdpView(Env):
             if self.flatten_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
                 self.action_space = flatten_space(self.action_space)  # Requires effort to restructure output later
 
-        if internal_policy == None:
+        if internal_policy is None:
             if action_space_is_discrete:
                 self.internal_policy = lambda obs: parent.action_parameter_space.sample()
             else:
@@ -118,7 +123,6 @@ class PamdpToMdpView(Env):
     
     def close(self):
         return self.parent.close()
-
 
 
 STEP_KEYS = ["obs", "reward", "terminated", "truncated", "info"]
