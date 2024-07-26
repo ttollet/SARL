@@ -2,7 +2,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics  # Note stats
 from gymnasium import ObservationWrapper
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, A2C
 from stable_baselines3.common.monitor import Monitor
 
 import time
@@ -59,8 +59,13 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
         if discrete:
             def continuousPolicy(x): return mdp.action_parameter_space.sample()
             discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-            log_dir = f"tests/test_output/discrete/ppo/{env_name.lower()}/{str(learning_steps)}steps"
-            discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+            agent="A2C"  # TODO: REPLACE
+            if agent == "PPO":
+                log_dir = f"tests/test_output/discrete/ppo/{env_name.lower()}/{str(learning_steps)}steps"
+                discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+            elif agent == "A2C":
+                log_dir = f"tests/test_output/discrete/a2c/{env_name.lower()}/{str(learning_steps)}steps"
+                discreteAgent = A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
         elif not discrete:
             def discretePolicy(x): return mdp.discrete_action_space.sample()
@@ -72,10 +77,10 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
             discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
             continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False)#, internal_policy=discreteAgent.predict)
 
-            log_dir_discrete = f"tests/test_output/hybrid/ppo-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
-            log_dir_continuous = f"tests/test_output/hybrid/ppo-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
+            log_dir_discrete = f"tests/test_output/hybrid/ac2-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
+            log_dir_continuous = f"tests/test_output/hybrid/ac2-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
 
-            discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
+            discreteAgent = A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
             continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous)
 
             discreteActionMDP.internal_policy = continuousAgent
@@ -83,7 +88,7 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
 
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent)
 
-        agent.learn(learning_steps, cylcles=cycles, progress_bar=True)
+        agent.learn(learning_steps, cycles=cycles, progress_bar=True)
 
         # A few steps of the trained model
         obs, info = mdp.reset()
@@ -109,5 +114,5 @@ def test_converter_both(max_steps:int=250, learning_steps:int=250*1, cycles=2, s
     return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=2, seed=seed)
 
 # def test_converter_parity():
-#     '''Converter outputs same cumulative reward'''
+#     '''Converter outputs same cumulative reward as pre-converted envs.'''
 #     pass
