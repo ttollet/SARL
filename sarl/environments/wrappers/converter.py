@@ -1,6 +1,5 @@
 from typing import Any
 
-import numpy as np
 from gymnasium import Env, Wrapper, spaces
 from gymnasium.core import ObsType
 from gymnasium.spaces.utils import flatten_space, unflatten
@@ -8,6 +7,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 
 class HybridPolicy:
     # For combining two separate policies for use with the converter
+    # TODO: Consider inheriting from SB3 equivalent base class
     def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None) -> None:
         self.agent = {key: None for key in ["discrete", "continuous"]}
 
@@ -82,9 +82,9 @@ class PamdpToMdpView(Env):
 
         if internal_policy is None:
             if action_space_is_discrete:
-                self.internal_policy = lambda obs: parent.action_parameter_space.sample()
+                self.internal_policy = lambda _: parent.action_parameter_space.sample()
             else:
-                self.internal_policy = lambda obs: parent.discrete_action_space.sample()
+                self.internal_policy = lambda _: parent.discrete_action_space.sample()
         else:
             self.internal_policy = internal_policy
         self.action_space_is_discrete = action_space_is_discrete

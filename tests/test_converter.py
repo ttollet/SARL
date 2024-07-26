@@ -67,7 +67,7 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
                 log_dir = f"tests/test_output/discrete/a2c/{env_name.lower()}/{str(learning_steps)}steps"
                 discreteAgent = A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
             agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
-        elif not discrete:
+        elif discrete is False:
             def discretePolicy(x): return mdp.discrete_action_space.sample()
             continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy)
             log_dir = f"tests/test_output/continuous/ppo/{env_name.lower()}/{str(learning_steps)}steps"
