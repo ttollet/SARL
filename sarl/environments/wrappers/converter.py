@@ -1,8 +1,8 @@
 from typing import Any
 
+import numpy as np
 from gymnasium import Env, Wrapper, spaces
 from gymnasium.core import ObsType
-from gymnasium.spaces.utils import flatten_space, unflatten
 from stable_baselines3.common.base_class import BaseAlgorithm
 
 class HybridPolicy:
@@ -46,26 +46,25 @@ class HybridPolicy:
         if policy.__qualname__ == "BaseAlgorithm.predict":  # If the policy is the method of a StableBaselines3 BaseAlgorithm object
             prediction = policy(obs[1])[0]  # Since prediction[1] is irrelevant unused hidden state information
             if obs[0]==-1:
-                return int(prediction)
-            else:
-                return prediction
+                prediction = int(prediction)
         else:
-            return policy(obs[1])
+            prediction = policy(obs[1])
+        return prediction
 
 class PamdpToMdpView(Env):
-    def __init__(self, parent:Env, action_space_is_discrete:bool, flatten_continuous_actions:bool=True, internal_policy=None) -> None:
+    def __init__(self, parent:Env, action_space_is_discrete:bool, internal_policy=None, combine_continuous_actions:bool=False) -> None:
         """Initialise an MDP to provide a method of only taking either discrete actions or action-parameters, whilst an internal policy handles the unchosen component.
 
         Args:
             parent (Env): PAMDP which this artificial MDP interacts with.
             action_space_is_discrete (bool): Whether this MDP is intended for a discrete or continuous policy.
-            flatten_continuous_actions (bool, optional): To improve compatability. Defaults to True.
+            combine_continuous_actions (bool, optional): To improve compatability. Defaults to True.
             internal_policy (_type_, optional): Specify policy to handle non-agent action component selection. Defaults to None (resulting in a random policy).
         """
 
         super().__init__()
 
-        self.flatten_continuous_actions = flatten_continuous_actions
+        self.combine_continuous_actions = combine_continuous_actions
         self.observation_space = parent.observation_space[1]
         self.reward_range = parent.reward_range  # TODO: Amend in future
         self.spec = parent.spec
@@ -77,8 +76,10 @@ class PamdpToMdpView(Env):
             self.action_space = parent.discrete_action_space
         else:
             self.action_space = parent.action_parameter_space
-            if self.flatten_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
-                self.action_space = flatten_space(self.action_space)  # Requires effort to restructure output later
+            if self.combine_continuous_actions:  # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
+                self.action_parameter_indices_mapping = {a: [] for a in list(range(self.parent.discrete_action_space.n))}
+                # ^^^ Stores which of the single box's indicies correspond to which discrete actions
+                self.action_space = self._combine(self.action_space)  # Requires effort to restructure output later
 
         if internal_policy is None:
             if action_space_is_discrete:
@@ -106,8 +107,8 @@ class PamdpToMdpView(Env):
             view_obs = self.parent.previous_step_output["obs"][1]
             obs, reward, terminated, truncated, info = self.parent.step(self.internal_policy(view_obs))
             view_obs = obs[1]
-            if self.flatten_continuous_actions:
-                action = unflatten(self.parent.action_parameter_space, action)
+            if self.combine_continuous_actions:
+                action = self._uncombine_action(action)
             obs, reward, terminated, truncated, info = self.parent.step(action)
             view_obs = obs[1]
             
@@ -124,11 +125,40 @@ class PamdpToMdpView(Env):
     def close(self):
         return self.parent.close()
 
+    def _combine(self, space):
+        # Receives a tuple of boxes
+        # Outputs a single box 
+        # Samples of output box can be interpreted in terms of original tuple
+        lows = []
+        highs = []
+        for action in range(len(space)):
+            box = space[action]
+            for j in range(box.shape[0]):
+                self.action_parameter_indices_mapping[action].append(len(highs))  # partition box based on original Tuple
+                highs.append(box.high[j])
+                lows.append(box.low[j])
+            self.action_parameter_indices_mapping[action] = np.array(self.action_parameter_indices_mapping[action])
+        self.parent.action_parameter_indices_mapping = self.action_parameter_indices_mapping
+        return spaces.Box(low=np.array(lows), high=np.array(highs), dtype=np.float32)
+
+    def _uncombine_action(self, action):
+        # Return expected Tuple of boxes by partioning the box accordingly
+        output = [np.empty(shape=box.shape) for box in self.parent.action_parameter_space.spaces]
+        for i in range(len(self.parent.action_parameter_space)):
+            output[i] = np.array(action[self.action_parameter_indices_mapping[i]])
+        assert tuple(output) in self.parent.action_parameter_space
+        return tuple(output)
+
 
 STEP_KEYS = ["obs", "reward", "terminated", "truncated", "info"]
 class PamdpToMdp(Wrapper):
     def __init__(self, env: Env):
         super().__init__(env)
+
+        self.discrete_action_space = self.action_space[0]
+        self.action_parameter_space = self.action_space[1]
+        self.action_parameter_indices_mapping: dict
+        # self.action_space = 
 
         original_observation_space = self.observation_space
         self.observation_space = spaces.Tuple((
@@ -136,17 +166,13 @@ class PamdpToMdp(Wrapper):
             original_observation_space
         ))
 
-        self.discrete_action_space = self.action_space[0]
-        self.action_parameter_space = self.action_space[1]
-        # self.action_space = 
-
         self.previous_step_output = {key: None for key in STEP_KEYS[1:]}
         self.previous_step_output[STEP_KEYS[0]] = [-1, None]  # Start with discrete action
         self.discrete_action_choice = None
 
 
-    def getComponentMdp(self, action_space_is_discrete: bool, internal_policy=None) -> Env:
-        return PamdpToMdpView(self, action_space_is_discrete, internal_policy)
+    def getComponentMdp(self, action_space_is_discrete: bool, internal_policy=None, combine_continuous_actions:bool=False) -> Env:
+        return PamdpToMdpView(self, action_space_is_discrete, internal_policy, combine_continuous_actions=combine_continuous_actions)
 
 
     def expectingDiscreteAction(self):
@@ -170,9 +196,14 @@ class PamdpToMdp(Wrapper):
             terminated, truncated, info = (self.previous_step_output[key] for key in STEP_KEYS[2:])
         else:
             if partial_action not in self.action_parameter_space:
-                # Assume flattened and unflatten
-                partial_action = unflatten(self.action_parameter_space, partial_action)
-            action = (self.discrete_action_choice, partial_action)
+                # Make it a tuple of arrays, assuming that's what the env wants
+                indices = self.action_parameter_indices_mapping
+                partial_action = tuple(np.array(partial_action[indices[action]]) for action in range(len(self.action_parameter_space)))
+            assert partial_action in self.action_parameter_space
+            # if partial_action not in self.action_parameter_space:
+                # Assume combined and uncombine
+                # partial_action = self._uncombine(self.action_parameter_space, partial_action)
+            action = (np.int64(self.discrete_action_choice), partial_action)
             obs, reward, terminated, truncated, info = self.env.step(action)
             obs = (-1, obs)
         step_output = obs, reward, terminated, truncated, info

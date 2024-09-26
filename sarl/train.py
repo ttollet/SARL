@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
 @hydra.main(version_base=None, config_path="config", config_name="sarl")
 def main(job_config: DictConfig):
     # Identify relevant script
-    from snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal
+    from snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal  # TODO: Refactor to avoid script-per-combination
     try:
         chosen_script = {  # (Dict mapping config terms to functions)
             "pdqn": {
