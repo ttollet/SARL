@@ -23,7 +23,7 @@ class HybridPolicy:
             self.agent["continuous"] = continuousAgent
             self.continuousPolicy = continuousAgent.predict
 
-    def learn(self, total_timesteps, cycles=1, callback=None, log_interval=1, tb_log_name='run', reset_num_timesteps=True, progress_bar=False):
+    def learn(self, total_timesteps, cycles=1, callback=None, log_interval=1, tb_log_name='run', reset_num_timesteps=False, progress_bar=False):
         assert cycles >= 1
         if cycles > 1:
             assert total_timesteps % cycles == 0
@@ -33,7 +33,10 @@ class HybridPolicy:
                 agent = self.agent[agent_type]
                 if agent is not None:
                     if isinstance(agent, BaseAlgorithm):
-                        self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval, (tb_log_name+"_"+agent_type), reset_num_timesteps, progress_bar)  # TODO: Share timestep number
+                        tb_log_name_for_component_agents = (tb_log_name+"_"+agent_type)
+                        self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval, 
+                                                     tb_log_name_for_component_agents, reset_num_timesteps, 
+                                                     progress_bar)  # TODO: Share timestep number
                     else:
                         raise NotImplementedError
 
