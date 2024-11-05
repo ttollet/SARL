@@ -43,7 +43,8 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42):
     return None
 
 
-def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42):  # 1 sample each 2048 timesteps for PPO
+def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, log_results:bool=False,
+                    discreteAlg="PPO", continuousAlg="PPO"):  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can support a discrete learner'''
     for env_name in ["Platform-v0", "Goal-v0"]:
         for _ in range(NUM_TRIALS):
@@ -59,37 +60,43 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
             mdp = PamdpToMdp(pamdp)
 
             # Agent setup
+            log_dir = None
+            log_dir_discrete = None
+            log_dir_continuous = None
+            if log_results:
+                if discrete:
+                    log_dir = f"tests/test_output/discrete/{discreteAlg.lower()}/{env_name.lower()}/{str(learning_steps)}steps"
+                elif discrete is False:
+                    log_dir = f"tests/test_output/continuous/{continuousAlg.lower()}/{env_name.lower()}/{str(learning_steps)}steps"
+                else:
+                    log_dir_discrete = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
+                    log_dir_continuous = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
+
             if discrete:
                 def continuousPolicy(x): return mdp.action_parameter_space.sample()
                 discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-                agent="A2C"  # TODO: REPLACE
-                if agent == "PPO":
-                    log_dir = f"tests/test_output/discrete/ppo/{env_name.lower()}/{str(learning_steps)}steps"
-                    discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
-                elif agent == "A2C":
-                    log_dir = f"tests/test_output/discrete/a2c/{env_name.lower()}/{str(learning_steps)}steps"
-                    discreteAgent = A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+                discreteAgent = {
+                    "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
+                    "AC2": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+                }[discreteAlg]
                 agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
             elif discrete is False:
                 def discretePolicy(x): return mdp.discrete_action_space.sample()
                 continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy, combine_continuous_actions=True)  # TODO: Ensure combine_continuous_actions is as desired log_dir = f"tests/test_output/continuous/ppo/{env_name.lower()}/{str(learning_steps)}steps"
-                log_dir = f"tests/test_output/continuous/ppo/{env_name.lower()}/{str(learning_steps)}steps"
-                continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+                continuousAgent = {
+                    "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
+                }[continuousAlg]
                 agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
             else:
                 discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
                 continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
-
-                log_dir_discrete = f"tests/test_output/hybrid/ppo-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
-                log_dir_continuous = f"tests/test_output/hybrid/ppo-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
-                discreteAgent = PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
-                continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous)
-
-                # log_dir_discrete = f"tests/test_output/hybrid/ac2-ppo-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
-                # log_dir_continuous = f"tests/test_output/hybrid/ac2-ppo-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
-                # discreteAgent = A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
-                # continuousAgent = PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous)
-
+                discreteAgent = {
+                    "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
+                    "AC2": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
+                }[discreteAlg]
+                continuousAgent = {
+                    "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
+                }[continuousAlg]
                 discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
                 continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
 
