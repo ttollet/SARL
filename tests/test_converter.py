@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers import RecordEpisodeStatistics  # Note stats
@@ -77,7 +78,7 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
                 discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
                 discreteAgent = {
                     "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
-                    "AC2": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+                    "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
                 }[discreteAlg]
                 agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
             elif discrete is False:
@@ -92,8 +93,9 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
                 continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
                 discreteAgent = {
                     "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
-                    "AC2": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete)
-                }[discreteAlg]
+                    "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
+                }
+                discreteAgent = discreteAgent[discreteAlg]
                 continuousAgent = {
                     "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
                 }[continuousAlg]
@@ -124,7 +126,8 @@ def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:
     return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42, discreteAlg="PPO", continuousAlg="PPO", log_results=False):
+# def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42, discreteAlg="PPO", continuousAlg="PPO", log_results=False):
+def test_converter_both(max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, discreteAlg="A2C", continuousAlg="PPO", log_results=False):
     # learning_steps=250*2*3 is 53s on M1 MBP
     return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seed=seed, discreteAlg=discreteAlg, continuousAlg=continuousAlg, log_results=log_results)
 
