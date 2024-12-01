@@ -124,9 +124,9 @@ def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:
     return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42):
+def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42, discreteAlg="PPO", continuousAlg="PPO"):
     # learning_steps=250*2*3 is 53s on M1 MBP
-    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seed=seed)
+    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seed=seed, discreteAlg=discreteAlg, continuousAlg=continuousAlg)
 
 # def test_converter_parity():
 #     '''Converter outputs same cumulative reward as pre-converted envs.'''
