@@ -10,6 +10,8 @@ from omegaconf import DictConfig
 import warnings
 import logging
 
+from sarl.snippets.converter_use import ppo_ppo_goal
+
 # For cleaner output, mutes unnecessary warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
 
@@ -18,15 +20,21 @@ warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
 def main(job_config: DictConfig):
     # Identify relevant script
     from snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal  # TODO: Refactor to avoid script-per-combination
+    from snippets.converter_use import ppo_ppo_platform, ppo_ppo_goal, a2c_ppo_platform, a2c_ppo_goal
     try:
         chosen_script = {  # (Dict mapping config terms to functions)
             "pdqn": {
                 "platform": test_pdqn_platform,
                 "goal": test_pdqn_goal
-            }#,
-            # "ppo-ppo": {
-            #     "platform": ppo-ppo_platform
-            # }
+            },
+            "ppo-ppo": {
+                "platform": ppo_ppo_platform,
+                "goal": ppo_ppo_goal
+            },
+            "a2c-ppo": {
+                "platform": a2c_ppo_platform,
+                "goal": a2c_ppo_goal
+            }
         }[job_config["algorithm"]][job_config["environment"]]
     except:
         raise NotImplementedError

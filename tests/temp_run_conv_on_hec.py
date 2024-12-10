@@ -18,6 +18,6 @@ print(f"Seed = {seed}")
 
 timesteps  = 250*2*3 * TARGET_MINUTES * CYCLES
 
-test_converter_both(discreteAlg=discreteAlg, continuousAlg=continuousAlg, learning_steps=timesteps, log_results=True, cycles=CYCLES, seed=seed)
-#test_converter_both(discreteAlg="PPO", continuousAlg="PPO", learning_steps=timesteps, log_results=True, cycles=CYCLES, seed=seed)
-#test_converter_both(discreteAlg="A2C", continuousAlg="PPO", learning_steps=timesteps, log_results=True, cycles=CYCLES, seed=seed)
+test_converter_both(discreteAlg=discreteAlg, continuousAlg=continuousAlg, learning_steps=timesteps, use_tensorboard=True, cycles=CYCLES, seed=seed)
+#test_converter_both(discreteAlg="PPO", continuousAlg="PPO", learning_steps=timesteps, use_tensorboard=True, cycles=CYCLES, seed=seed)
+#test_converter_both(discreteAlg="A2C", continuousAlg="PPO", learning_steps=timesteps, use_tensorboard=True, cycles=CYCLES, seed=seed)

@@ -3,12 +3,12 @@ algorithm: ???
 environment: ???
 
 parameters:
+  seeds: [1]
   train_episodes: 250 # default: 2500
   max_steps: 250
-  seeds: [1]
-
 
 verbose: info
 hydra:
   job:
     name: train
+

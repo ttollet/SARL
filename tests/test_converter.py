@@ -44,7 +44,7 @@ def test_converter_agent_sample(max_steps:int=5, seed:int=42):
     return None
 
 
-def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, log_results:bool=False,
+def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, use_tensorboard:bool=False, write_csv:bool=False,
                     discreteAlg="PPO", continuousAlg="PPO"):  # 1 sample each 2048 timesteps for PPO
     '''Hybrid policy class can support a discrete learner'''
     for env_name in ["Platform-v0", "Goal-v0"]:
@@ -64,7 +64,7 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
             log_dir = None
             log_dir_discrete = None
             log_dir_continuous = None
-            if log_results:
+            if use_tensorboard or write_csv:
                 if discrete:
                     log_dir = f"tests/test_output/discrete/{discreteAlg.lower()}/{env_name.lower()}/{str(learning_steps)}steps"
                 elif discrete is False:
@@ -126,10 +126,10 @@ def test_converter_continuous(max_steps:int=250, learning_steps:int=250*1, seed:
     return _test_converter(discrete=False, max_steps=max_steps, learning_steps=learning_steps, seed=seed)
 
 
-# def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42, discreteAlg="PPO", continuousAlg="PPO", log_results=False):
-def test_converter_both(max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, discreteAlg="A2C", continuousAlg="PPO", log_results=False):
+# def test_converter_both(max_steps:int=250, learning_steps:int=250*2*3, cycles=3, seed:int=42, discreteAlg="PPO", continuousAlg="PPO", use_tensorboard=False):
+def test_converter_both(max_steps:int=250, learning_steps:int=250*1, cycles=1, seed:int=42, discreteAlg="A2C", continuousAlg="PPO", use_tensorboard=False):
     # learning_steps=250*2*3 is 53s on M1 MBP
-    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seed=seed, discreteAlg=discreteAlg, continuousAlg=continuousAlg, log_results=log_results)
+    return _test_converter(max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seed=seed, discreteAlg=discreteAlg, continuousAlg=continuousAlg, use_tensorboard=use_tensorboard)
 
 # def test_converter_parity():
 #     '''Converter outputs same cumulative reward as pre-converted envs.'''
