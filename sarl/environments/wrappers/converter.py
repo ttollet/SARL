@@ -4,12 +4,18 @@ import numpy as np
 from gymnasium import Env, Wrapper, spaces
 from gymnasium.core import ObsType
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.callbacks import CallbackList
+
+from sarl.agents.callbacks.data_callback import DataCallback
 
 class HybridPolicy:
     # For combining two separate policies for use with the converter
     # TODO: Consider inheriting from SB3 equivalent base class
-    def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None) -> None:
+    def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None, name=None) -> None:
         self.agent = {key: None for key in ["discrete", "continuous"]}
+        self.name = name
+        self.timestep = None
+        self.cycle = None
 
         if discretePolicy is not None:
             self.discretePolicy = discretePolicy
@@ -28,13 +34,23 @@ class HybridPolicy:
         if cycles > 1:
             assert total_timesteps % cycles == 0
         timesteps_per_agent = int(total_timesteps / cycles / len(self.agent.keys()))
-        for cycle in range(cycles):
+        self.timestep = 0
+        for agent_type in self.agent.keys():
+            self.agent[agent_type].agent_type = agent_type
+            self.agent[agent_type].parent = self
+        for cycle in range(cycles-1):
+            self.cycle = cycle
             for agent_type in self.agent.keys():
-                print(f"[Cycle {cycle+1}]: {timesteps_per_agent} {agent_type} timesteps...")
+                print(f"[{self.name}][Seed {self.agent[agent_type].seed}][Timestep {self.timestep}/{total_timesteps}][Cycle {cycle+1}/{cycles+1}][{agent_type}]: Learning for {timesteps_per_agent} timesteps...")
+                # self.timestep = self.timestep + timesteps_per_agent
                 agent = self.agent[agent_type]
                 if agent is not None:
                     if isinstance(agent, BaseAlgorithm):
                         tb_log_name_for_component_agents = (tb_log_name+"_"+agent_type)
+                        if callback is not None:
+                            callback = CallbackList([
+                                callback
+                            ])
                         self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval,
                                                      tb_log_name_for_component_agents, reset_num_timesteps,
                                                      progress_bar)  # TODO: Share timestep number

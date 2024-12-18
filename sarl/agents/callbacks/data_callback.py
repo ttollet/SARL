@@ -32,6 +32,9 @@ class DataCallback(BaseCallback):
         """
         This method is called before the first rollout starts.
         """
+        self.logger.record(key="custom/pamdp_timestep", value=self.model.parent.timestep)
+        self.logger.record(key="custom/cycle", value=self.model.parent.cycle)
+        self.logger.record(key="custom/active_agent", value=(f"{self.model.agent_type}"))
         pass
 
     def _on_rollout_start(self) -> None:
@@ -40,6 +43,7 @@ class DataCallback(BaseCallback):
         using the current policy.
         This event is triggered before collecting new samples.
         """
+        self.logger.record(key="custom/pamdp_timestep", value=self.model.parent.timestep)
         pass
 
     def _on_step(self) -> bool:
@@ -51,16 +55,19 @@ class DataCallback(BaseCallback):
 
         :return: If the callback returns False, training is aborted early.
         """
+        self.model.parent.timestep = self.model.parent.timestep + 1
         return True
 
     def _on_rollout_end(self) -> None:
         """
         This event is triggered before updating the policy.
         """
+        self.logger.record(key="custom/agent_type", value=(f"{self.model.agent_type}"))
         pass
 
     def _on_training_end(self) -> None:
         """
         This event is triggered before exiting the `learn()` method.
         """
+        self.logger.record(key="custom/agent_type", value=(f"{self.model.agent_type}"))
         pass

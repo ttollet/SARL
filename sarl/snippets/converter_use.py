@@ -4,8 +4,9 @@ import gymnasium as gym
 from gymnasium import ObservationWrapper
 from gymnasium.wrappers import RecordEpisodeStatistics  # Replaces deprecated Gymnasium Monitor wrapper
 from stable_baselines3 import PPO, A2C, DQN, DDPG, SAC, TD3
-# from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.logger import configure, Logger
+from stable_baselines3.common.callbacks import CallbackList
 
 from sarl.environments.wrappers.converter import PamdpToMdp, HybridPolicy
 from sarl.agents.callbacks.data_callback import DataCallback
@@ -27,17 +28,19 @@ def run_converter(discreteAlg="", continuousAlg="", env_name:str="", discrete_on
 
         pamdp = _make_env(env_name=env_name, seed=seed)
         # pamdp_eval = _make_env(env_name=env_name, seed=seed+1)
+
+        class IgnoreStepCount(ObservationWrapper):
+            def __init__(self, env: gym.Env):
+                super().__init__(env)
+                self.observation_space = self.observation_space[0]
+            def observation(self, observation):
+                return observation[0]
         if env_name in ["Platform-v0", "Goal-v0"]:
-            class IgnoreStepCount(ObservationWrapper):
-                def __init__(self, env: gym.Env):
-                    super().__init__(env)
-                    self.observation_space = self.observation_space[0]
-                def observation(self, observation):
-                    return observation[0]
             pamdp = IgnoreStepCount(pamdp)  # Necessary yet unsure why
+
         mdp = PamdpToMdp(pamdp)
         mdp = RecordEpisodeStatistics(mdp)
-        # mdp = Monitor(mdp, filename=f"{parent_log_dir}/mdp-monitor/")  # Seemingly ineffectual
+        mdp = Monitor(mdp, filename=f"{parent_log_dir}/mdp-monitor/")  # Seemingly ineffectual
 
         # Agent setup
         log_dir = ""
@@ -100,9 +103,12 @@ def run_converter(discreteAlg="", continuousAlg="", env_name:str="", discrete_on
             discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
             continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
 
-            agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent)
+            agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent, name=f"{discreteAlg}-{continuousAlg}")
 
-        agent.learn(learning_steps, cycles=cycles, callback=sharedDataCallback, progress_bar=True)
+        callbacks = CallbackList([
+            DataCallback(),
+        ])
+        agent.learn(learning_steps, cycles=cycles, callback=callbacks, progress_bar=True)
 
         # Evaluate TODO:
         # obs, info = mdp.reset()
