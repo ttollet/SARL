@@ -75,7 +75,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     return returns
 
 
-def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True):
+def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None):
     '''Ensure P-DQN learns within Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
@@ -135,7 +135,7 @@ def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir
 
         # Check
         return returns
-    
+
 
 
 def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True):

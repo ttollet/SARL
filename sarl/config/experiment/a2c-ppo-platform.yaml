@@ -1,5 +1,5 @@
 # @package _global_
-algorithm: ppo-ppo
+algorithm: a2c-ppo
 environment: platform
 
 parameters:

@@ -27,15 +27,16 @@ class HybridPolicy:
         assert cycles >= 1
         if cycles > 1:
             assert total_timesteps % cycles == 0
-        timesteps_per_agent = total_timesteps / cycles / len(self.agent.keys())
-        for _ in range(cycles):
+        timesteps_per_agent = int(total_timesteps / cycles / len(self.agent.keys()))
+        for cycle in range(cycles):
             for agent_type in self.agent.keys():
+                print(f"[Cycle {cycle+1}]: {timesteps_per_agent} {agent_type} timesteps...")
                 agent = self.agent[agent_type]
                 if agent is not None:
                     if isinstance(agent, BaseAlgorithm):
                         tb_log_name_for_component_agents = (tb_log_name+"_"+agent_type)
-                        self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval, 
-                                                     tb_log_name_for_component_agents, reset_num_timesteps, 
+                        self.agent[agent_type].learn(timesteps_per_agent, callback, log_interval,
+                                                     tb_log_name_for_component_agents, reset_num_timesteps,
                                                      progress_bar)  # TODO: Share timestep number
                     else:
                         raise NotImplementedError
@@ -114,23 +115,23 @@ class PamdpToMdpView(Env):
                 action = self._uncombine_action(action)
             obs, reward, terminated, truncated, info = self.parent.step(action)
             view_obs = obs[1]
-            
+
         return view_obs, reward, terminated, truncated, info
 
     def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = self.parent.reset(seed=seed, options=options)
         view_obs = obs[0] if self.action_space_is_discrete else obs[1]
         return view_obs, info
-    
+
     def render(self):
         return self.parent.render()
-    
+
     def close(self):
         return self.parent.close()
 
     def _combine(self, space):
         # Receives a tuple of boxes
-        # Outputs a single box 
+        # Outputs a single box
         # Samples of output box can be interpreted in terms of original tuple
         lows = []
         highs = []
@@ -161,7 +162,7 @@ class PamdpToMdp(Wrapper):
         self.discrete_action_space = self.action_space[0]
         self.action_parameter_space = self.action_space[1]
         self.action_parameter_indices_mapping: dict
-        # self.action_space = 
+        # self.action_space =
 
         original_observation_space = self.observation_space
         self.observation_space = spaces.Tuple((
@@ -182,7 +183,7 @@ class PamdpToMdp(Wrapper):
         assert -1 not in self.discrete_action_space
         return self.previous_step_output["obs"][0] == -1  # Since discrete actions are indicated >=0
 
-    
+
     def reset(self, *, seed = None, options = None) -> tuple[ObsType, dict[str, Any]]:
         obs, info = super().reset(seed=seed, options=options)
         converted_obs = (-1, obs)  # Indicator, obs

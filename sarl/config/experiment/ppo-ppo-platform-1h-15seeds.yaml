@@ -3,6 +3,6 @@ algorithm: ppo-ppo
 environment: platform
 
 parameters:
-  learning_steps: 90000
-  cycles: 1800
-  seeds: [1]
+  learning_steps: 6000
+  cycles: 120
+  seeds: [1:15]
