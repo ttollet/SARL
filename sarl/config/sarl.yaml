@@ -3,10 +3,10 @@ algorithm: ???
 environment: ???
 
 parameters:
-  train_episodes: 250 # default: 2500; used only by temp_pdqn.py
-  max_steps: 250
-  learning_steps: 200_000 # Multiple of 2048
-  cycles: 40 # Factor of learning_steps
+  train_episodes: 500 #250 # default: 2500; used only by temp_pdqn.py
+  max_steps: 500 #250
+  learning_steps: 800000 #400000 # Multiple of 2048
+  cycles: 40 #20 # Factor of learning_steps
   seeds:
     - 1
     - 2
@@ -27,4 +27,6 @@ parameters:
 verbose: info
 hydra:
   job:
-    name: train
+    name: unnamed
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}

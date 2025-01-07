@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics  # Note stats
+from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics  # Note stats
 from gymnasium import ObservationWrapper
 from stable_baselines3 import PPO, A2C
 from stable_baselines3.common.monitor import Monitor
@@ -70,8 +70,8 @@ def _test_converter(discrete=None, max_steps:int=250, learning_steps:int=250*1, 
                 elif discrete is False:
                     log_dir = f"tests/test_output/continuous/{continuousAlg.lower()}/{env_name.lower()}/{str(learning_steps)}steps"
                 else:
-                    log_dir_discrete = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-{cycles}-discrete/{env_name.lower()}/{str(learning_steps)}steps" 
-                    log_dir_continuous = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-{cycles}-continuous/{env_name.lower()}/{str(learning_steps)}steps" 
+                    log_dir_discrete = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-{cycles}-discrete/{env_name.lower()}/{str(learning_steps)}steps"
+                    log_dir_continuous = f"tests/test_output/hybrid/{discreteAlg.lower()}-{continuousAlg.lower()}-{cycles}-continuous/{env_name.lower()}/{str(learning_steps)}steps"
 
             if discrete:
                 def continuousPolicy(x): return mdp.action_parameter_space.sample()
