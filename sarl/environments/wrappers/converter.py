@@ -17,6 +17,7 @@ class HybridPolicy:
         self.timestep = None
         self.cycle = None
         self.env_name = env_name
+        self.seed = seed
 
         if discretePolicy is not None:
             self.discretePolicy = discretePolicy
