@@ -108,6 +108,7 @@ def main(job_config: DictConfig):
     logger.setLevel(getattr(logging, job_config.get("verbose", "info").upper()))
     logger.info("Log started.")
     logger.info(f"SB3 get_device() output:{get_device()}")
+    logger.info(f'Running {job_config["algorithm"]} on {job_config["environment"]} with seed {job_config["parameters.seeds"]}')
 
     output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
