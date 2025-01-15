@@ -109,8 +109,9 @@ def main(job_config: DictConfig):
     logger.info("Log started.")
     logger.info(f"SB3 get_device() output:{get_device()}")
 
-    # Proof of concept: hydra for read/write experiments
     output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
+    logger.info(f"Writing to {output_dir}")
+
     return chosen_script(**job_config["parameters"], output_dir=output_dir)
 
 
