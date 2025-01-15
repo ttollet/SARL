@@ -11,7 +11,7 @@ from sarl.agents.callbacks.data_callback import DataCallback
 class HybridPolicy:
     # For combining two separate policies for use with the converter
     # TODO: Consider inheriting from SB3 equivalent base class
-    def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None, name=None, env_name=None) -> None:
+    def __init__(self, discretePolicy=None, continuousPolicy=None, discreteAgent=None, continuousAgent=None, name=None, env_name=None, seed=None) -> None:
         self.agent = {key: None for key in ["discrete", "continuous"]}
         self.name = name
         self.timestep = None

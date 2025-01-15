@@ -103,7 +103,7 @@ def run_converter(discreteAlg="", continuousAlg="", env_name:str="", discrete_on
             discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
             continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
 
-            agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent, name=f"{discreteAlg}-{continuousAlg}", env_name=env_name)
+            agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent, name=f"{discreteAlg}-{continuousAlg}", env_name=env_name, seed=seed)
 
         callbacks = CallbackList([
             DataCallback(),
