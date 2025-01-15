@@ -11,6 +11,7 @@ from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig
 import warnings
 import logging
+from stable_baselines3.common.utils import get_device
 
 # For cleaner output, mutes unnecessary warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
@@ -105,7 +106,8 @@ def main(job_config: DictConfig):
     hydra_config = HydraConfig.get()
     logger = logging.getLogger(hydra_config.job.name)
     logger.setLevel(getattr(logging, job_config.get("verbose", "info").upper()))
-    logger.info("This is a proof of concept.")
+    logger.info("Log started.")
+    logger.info(f"SB3 get_device() output:{get_device()}")
 
     # Proof of concept: hydra for read/write experiments
     output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
