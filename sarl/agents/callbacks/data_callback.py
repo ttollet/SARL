@@ -35,6 +35,8 @@ class DataCallback(BaseCallback):
         self.logger.record(key="custom/pamdp_timestep", value=self.model.parent.timestep)
         self.logger.record(key="custom/cycle", value=self.model.parent.cycle)
         self.logger.record(key="custom/agent_type", value=(f"{self.model.agent_type}"))
+        self.logger.record(key="custom/agent_name", value=f"{self.model.parent.name}")
+        self.logger.record(key="custom/env", value=f"{self.model.parent.env_name}")
         pass
 
     def _on_rollout_start(self) -> None:
