@@ -7,6 +7,6 @@ hydra:
     name: ppo-ppo-goal
 
 parameters:
-  learning_steps: 1200000
-  cycles: 15
+  learning_steps: 2400000
+  cycles: 30
   seeds: [1]
