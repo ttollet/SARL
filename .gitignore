@@ -157,10 +157,11 @@ cython_debug/
 
 # Hydra
 !sarl/outputs/
-sarl/outputs/*
+sarl/outputs/
 !sarl/outputs/saved/
 
 outputs/
 outputs/*
 outputs/saved/
+tests/test_output/
 .DS_Store

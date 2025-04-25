@@ -23,6 +23,7 @@ parameters:
     # - 13
     # - 14
     # - 15
+  eval_episodes: 250
 
 verbose: info
 hydra:

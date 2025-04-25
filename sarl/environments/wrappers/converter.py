@@ -45,6 +45,8 @@ class HybridPolicy:
             while not episode_over:
                 action = self.predict(obs)
                 obs, reward, terminated, truncated, info = eval_mdp.step(action)
+                action = self.predict(obs)
+                obs, reward, terminated, truncated, info = eval_mdp.step(action)
                 episode_over = terminated or truncated
             returns.append(info["episode"]["r"])
         return (timestep, np.mean(returns))
@@ -53,7 +55,7 @@ class HybridPolicy:
     def learn(self, total_timesteps, evaluation_interval=None,
         eval_mdp=None, cycles=1, callback=None, log_interval=1,
         tb_log_name='run', reset_num_timesteps=False, progress_bar=False,
-        evaluation_episodes=15, log_dir=None):
+        eval_episodes=15, log_dir=None):
         assert cycles >= 1
         if cycles > 1:
             assert total_timesteps % cycles == 0
@@ -67,7 +69,7 @@ class HybridPolicy:
         for cycle in range(cycles-1):  # Was the '-1' necessary?
             self.cycle = cycle
             for agent_type in self.agent.keys():
-                print(f"[{self.name}][Seed {self.agent[agent_type].seed}][Timestep {self.timestep}/{total_timesteps}][Cycle {cycle+1}/{cycles+1}][{agent_type}]: Learning for {timesteps_per_agent} timesteps...")
+                print(f"[{self.name}][Seed {self.agent[agent_type].seed}][Timestep {self.timestep}/{total_timesteps}][Cycle {cycle+1}/{cycles+1}][{agent_type}]: Learning for {timesteps_per_agent}+ timesteps...")
                 # self.timestep = self.timestep + timesteps_per_agent
                 agent = self.agent[agent_type]
                 if agent is not None:
@@ -84,13 +86,13 @@ class HybridPolicy:
             eval_bool = evaluation_interval is not None
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
                 mean_return = self._getMeanReturn(eval_mdp, timesteps_per_cycle,
-                    cycle, evaluation_episodes)
+                    cycle, eval_episodes)
                 evaluation_returns.append(mean_return)
                 file_name = f"{log_dir}/eval.csv"
                 print(f"[REWARD]: Mean reward = {mean_return[1]}")
                 print(f"[OUTPUT]: Writing to {file_name}")
                 np.savetxt(fname=file_name, X=np.array(evaluation_returns),
-                    header='"training_timesteps","mean__eval_episode_return"',
+                    header='"training_timesteps","mean_eval_episode_return"',
                     delimiter=',', fmt="%1.3f"
                 )
 

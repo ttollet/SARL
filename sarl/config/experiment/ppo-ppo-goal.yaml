@@ -2,7 +2,11 @@
 algorithm: ppo-ppo
 environment: goal
 
+hydra:
+  job:
+    name: ppo-ppo-goal
+
 parameters:
-  learning_steps: 90000
-  cycles: 1800
+  learning_steps: 1200000
+  cycles: 15
   seeds: [1]

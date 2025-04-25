@@ -1,0 +1,3 @@
+- +experiment=ppo-ppo-goal
+- parameters.learning_steps=540000
+- parameters.cycles=60

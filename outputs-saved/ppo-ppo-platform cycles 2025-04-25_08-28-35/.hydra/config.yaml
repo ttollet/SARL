@@ -1,0 +1,10 @@
+algorithm: ppo-ppo
+environment: platform
+parameters:
+  train_episodes: 500
+  max_steps: 500
+  learning_steps: 540000
+  cycles: 600
+  seeds:
+  - 1
+verbose: info
