@@ -1,0 +1,2 @@
+custom/seed,rollout/ep_rew_mean,time/total_timesteps,time/iterations,custom/agent_name,custom/agent_type,time/fps,time/time_elapsed,custom/cycle,custom/env,rollout/ep_len_mean,custom/pamdp_timestep
+1,-8.791608640000002,2048,1,"PPO-PPO","continuous",344,5,0,"Goal-v0",1.43,2048

@@ -18,6 +18,12 @@ stable-baselines3 = "^2.3.0"
 rich = "^13.7.1"
 protobuf = "4.25.3"  # https://github.com/databricks/dbt-databricks/issues/614 encountered whilst using tensorboard
 tensorboard = "^2.16.2"
+ipykernel = "^6.29.5"
+polars = "^1.21.0"
+altair = "^5.5.0"
+vl-convert-python = "^1.7.0"
+vegafusion = {extras = ["embed"], version = "^2.0.1"}
+vegafusion-python-embed = "^1.6.9"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.3.1"

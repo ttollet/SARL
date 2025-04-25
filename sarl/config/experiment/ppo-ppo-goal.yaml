@@ -1,0 +1,8 @@
+# @package _global_
+algorithm: ppo-ppo
+environment: goal
+
+parameters:
+  learning_steps: 90000
+  cycles: 1800
+  seeds: [1]

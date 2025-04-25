@@ -1,0 +1,4 @@
+time/total_timesteps,time/time_elapsed,time/iterations,rollout/ep_rew_mean,custom/agent_type,time/fps,custom/env,rollout/ep_len_mean,custom/pamdp_timestep,custom/agent_name,custom/cycle,custom/seed,train/explained_variance,train/approx_kl,train/policy_gradient_loss,train/entropy_loss,train/value_loss,train/clip_fraction,train/clip_range,train/loss,train/n_updates,train/learning_rate
+2048,5,1,-7.72238193,"discrete",350,"Goal-v0",1.44,0,"PPO-PPO",0,1,,,,,,,,,,
+4096,16,1,-7.609388239999999,"discrete",124,"Goal-v0",1.22,4096,"PPO-PPO",1,1,0.0680270791053772,0.038411744,-0.06883257120061899,-1.0674785099923612,39.79125539213419,0.51923828125,0.2,5.452325820922852,10,0.0003
+6144,4,1,-7.4508385,"discrete",496,"Goal-v0",1.03,8192,"PPO-PPO",2,1,0.24265336990356445,0.15407133,-0.08277795001631602,-0.8885695315897465,7.763578771054744,0.495947265625,0.2,5.214021682739258,20,0.0003

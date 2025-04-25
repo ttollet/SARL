@@ -4,5 +4,5 @@ environment: platform
 
 parameters:
   learning_steps: 90000
-  cycles: 1800
+  cycles: 10
   seeds: [1]

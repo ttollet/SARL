@@ -154,7 +154,7 @@ def plot(df, title:str = "", n_samples = None, save:bool = True, open_in_browser
     ).mark_errorband(extent='ci').encode(
         x=alt.X("timestep").title("Timestep"),
         y=alt.Y("reward").title("Reward"),
-        # color="agent_type"
+        color="agent_type"
     ).properties(
         width=1000,  # Set the width of the chart
         height=400  # Set the height of the chart
