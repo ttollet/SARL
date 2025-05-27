@@ -26,7 +26,7 @@ def test_train():
     HydraConfig.instance().set_config(cfg=hydra_config_setup)
     # Identify relevant script
     from sarl.snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal  # TODO: Refactor to avoid script-per-combination
-    from sarl.snippets.converter_use import run_converter  # TODO: Use this via the partial method
+    from sarl.snippets.converter_use import runConverter  # TODO: Use this via the partial method
     from sarl.snippets.converter_use import ppo_ppo_platform, a2c_ppo_platform, dqn_ppo_platform, ppo_ppo_goal, a2c_ppo_goal, dqn_ppo_goal
     from sarl.snippets.converter_use import ppo_a2c_platform, a2c_a2c_platform, dqn_a2c_platform, ppo_a2c_goal, a2c_a2c_goal, dqn_a2c_goal
     from sarl.snippets.converter_use import ppo_ddpg_platform, a2c_ddpg_platform, dqn_ddpg_platform, ppo_ddpg_goal, a2c_ddpg_goal, dqn_ddpg_goal

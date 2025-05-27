@@ -34,13 +34,12 @@ class HybridPolicy:
             self.agent["continuous"] = continuousAgent
             self.continuousPolicy = continuousAgent.predict
 
-    def _getMeanReturn(self, eval_mdp, timesteps_per_cycle, cycle, eval_episodes):
-        # timestep = timesteps_per_cycle * (cycle+1)
+    def _evaluate(self, eval_mdp, evaluation_returns, cycle, eval_episodes,
+        log_dir):
         timestep = self.timestep
         returns = []
         for i in range(eval_episodes):
             obs, info = eval_mdp.reset(seed=self.seed+cycle)
-            # eval_mdp.seed(eval_mdp.)
             episode_over = False
             while not episode_over:
                 action = self.predict(obs)
@@ -49,13 +48,21 @@ class HybridPolicy:
                 obs, reward, terminated, truncated, info = eval_mdp.step(action)
                 episode_over = terminated or truncated
             returns.append(info["episode"]["r"])
-        return (timestep, np.mean(returns))
+        mean_return = (timestep, np.mean(returns))
+        evaluation_returns.append(mean_return)
+        file_name = f"{log_dir}/eval.csv"
+        print(f"[REWARD]: Mean reward = {mean_return[1]}")
+        print(f"[OUTPUT]: Writing to {file_name}")
+        np.savetxt(fname=file_name, X=np.array(evaluation_returns),
+            header='"training_timesteps","mean_eval_episode_return"',
+            delimiter=',', fmt="%1.3f"
+        )
+        return evaluation_returns
 
 
-    def learn(self, total_timesteps, evaluation_interval=None,
-        eval_mdp=None, cycles=1, callback=None, log_interval=1,
-        tb_log_name='run', reset_num_timesteps=False, progress_bar=False,
-        eval_episodes=15, log_dir=None):
+    def learn(self, total_timesteps, evaluation_interval=None, eval_mdp=None,
+        cycles=1, callback=None, log_interval=1, tb_log_name='run',
+        reset_num_timesteps=False, progress_bar=False, eval_episodes=15, log_dir=None):
         assert cycles >= 1
         if cycles > 1:
             assert total_timesteps % cycles == 0
@@ -85,16 +92,8 @@ class HybridPolicy:
                         raise NotImplementedError
             eval_bool = evaluation_interval is not None
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
-                mean_return = self._getMeanReturn(eval_mdp, timesteps_per_cycle,
-                    cycle, eval_episodes)
-                evaluation_returns.append(mean_return)
-                file_name = f"{log_dir}/eval.csv"
-                print(f"[REWARD]: Mean reward = {mean_return[1]}")
-                print(f"[OUTPUT]: Writing to {file_name}")
-                np.savetxt(fname=file_name, X=np.array(evaluation_returns),
-                    header='"training_timesteps","mean_eval_episode_return"',
-                    delimiter=',', fmt="%1.3f"
-                )
+                evaluation_returns = self._evaluate(eval_mdp, evaluation_returns, cycle, eval_episodes, log_dir)
+
 
     def predict(self, obs):
         if obs[0]==-1:

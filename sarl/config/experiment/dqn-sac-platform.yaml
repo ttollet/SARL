@@ -1,0 +1,12 @@
+# @package _global_
+algorithm: dqn-sac
+environment: platform
+
+hydra:
+  job:
+    name: dqn-sac-platform
+
+parameters:
+  learning_steps: 400000
+  cycles: 20
+  seeds: [1]

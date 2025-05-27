@@ -29,7 +29,7 @@ def _getMDP(env_name, pamdp_seed):
     return mdp_env
 
 
-def _init_seed_logging(origin_log_dir, seed, env_name, write_stdout, write_csv,
+def _getLoggingSetup(origin_log_dir, seed, env_name, write_stdout, write_csv,
     use_tensorboard, discreteAlg, continuousAlg, cycles, learning_steps):
     '''Return required logging variables'''
     parent_log_dir = f"{origin_log_dir}/seed_{seed}/"
@@ -100,7 +100,7 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
     return agent
 
 
-def run_converter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
+def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
     continuousOnly=None, max_steps=None, learning_steps=None, cycles=None, seeds=[1],
     use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
     evaluation_interval=1, eval_episodes=15):
@@ -110,7 +110,7 @@ def run_converter(discreteAlg="", continuousAlg="", env_name="", discrete_only=N
     for seed in seeds:
         mdp = _getMDP(env_name, seed)
         eval_mdp = _getMDP(env_name, seed+1)
-        logging_info = _init_seed_logging(origin_log_dir, seed, env_name,
+        logging_info = _getLoggingSetup(origin_log_dir, seed, env_name,
                 write_stdout, write_csv, use_tensorboard, discreteAlg, continuousAlg,
                 cycles, learning_steps)
         agent = _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg,
@@ -123,75 +123,75 @@ def run_converter(discreteAlg="", continuousAlg="", env_name="", discrete_only=N
 
 
 # Functions for train.py
-# TODO: Reduce duplication - Only pass run_converter to train.py, and have them call it correctly
+# TODO: Reduce duplication - Only pass runConverter to train.py, and have them call it correctly
 # TODO: Implement train_episodes
 def ppo_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_a2c_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_a2c_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_a2c_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="A2C", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_ddpg_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_ddpg_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_ddpg_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="DDPG", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_sac_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_sac_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_sac_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="SAC", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_td3_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_td3_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_td3_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="TD3", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 
 def ppo_ppo_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_ppo_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_ppo_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="PPO", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_a2c_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_a2c_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_a2c_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="A2C", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_ddpg_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_ddpg_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_ddpg_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="DDPG", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_sac_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_sac_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_sac_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="SAC", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 
 def ppo_td3_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def a2c_td3_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_td3_goal(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    run_converter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+    runConverter(eval_episodes=eval_episodes, discreteAlg="DQN", continuousAlg="TD3", env_name="Goal-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)

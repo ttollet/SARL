@@ -8,5 +8,5 @@ hydra:
 
 parameters:
   learning_steps: 540000
-  cycles: 60
+  cycles: 600
   seeds: [1]

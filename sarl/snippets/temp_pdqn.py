@@ -1,4 +1,4 @@
-# This is a copy (with minor exits) of the current (at time of writing) corresponding pytest file.
+# This is a copy (with minor edits) of the current (at time of writing) corresponding pytest file.
 # This temporarily exists to enable a proof of concept demo.
 
 import numpy as np
@@ -30,13 +30,40 @@ def _pad_action(act, act_param):
     return (act, params)
 
 
-def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None):
-    '''Train to output a list of returns by timestep.'''
+def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
+    returns = []
+    for i in range(eval_episodes):
+        (obs, steps), info = eval_env.reset(seed=seed+timestep)
+        episode_over = False
+        while not episode_over:
+            obs = np.array(obs, dtype=np.float32, copy=False)
+            act, act_param, all_action_parameters = agent.act(obs)
+            action = _pad_action(act, act_param)
+            (obs, steps), reward, terminated, truncated, info = eval_env.step(action)
+            episode_over = terminated or truncated
+        returns.append(info["episode"]["r"])
+    mean_return = (timestep, np.mean(returns))
+    evaluation_returns.append(mean_return)
+    file_name = f"{log_dir}/eval.csv"
+    print(f"[REWARD]: Mean reward = {mean_return[1]}")
+    print(f"[OUTPUT]: Writing to {file_name}")
+    np.savetxt(fname=file_name, X=np.array(evaluation_returns),
+        header='"training_timesteps","mean_eval_episode_return"',
+        delimiter=',', fmt="%1.3f"
+    )
+    return evaluation_returns
 
+
+
+def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None, eval_env=None, eval_episodes=None):
+    '''Train to output a list of returns by timestep.'''
+    EVAL_FREQ = 100
     if output_dir:
         writer = SummaryWriter(log_dir=output_dir)
 
     info_per_episode = []
+    evaluation_returns = []
+    training_timesteps = 0
     for episode_index in tqdm(range(train_episodes)):
         (observation, steps), info = env.reset(seed=seed)
         observation = np.array(observation, dtype=np.float32, copy=False)
@@ -46,13 +73,13 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
         # Episode loop
         agent.start_episode()
         reward = 0
+        last_timestep = 0
         for timestep in range(max_steps):
+            last_timestep = timestep
             (next_observation, steps), reward, terminated, truncated, info = env.step(action)
             next_observation = np.array(next_observation, dtype=np.float32, copy=False)
-
             next_act, next_act_param, next_all_action_parameters = agent.act(next_observation)
             next_action = pad_action(next_act, next_act_param)
-
             r = reward * reward_scale
             agent.step(observation, (act, all_action_parameters), r, next_observation, (next_act, next_all_action_parameters), terminated or truncated, steps)
 
@@ -60,13 +87,15 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
             act, act_param, all_action_parameters = next_act, next_act_param, next_all_action_parameters
             action = next_action
             observation = next_observation
-
             if terminated or truncated:
                 break
+        training_timesteps += last_timestep
         agent.end_episode()
         info_per_episode.append(info)
-        if output_dir:
+        if output_dir is not None:
             writer.add_scalar("Return", info["episode"]["r"], episode_index)
+            if (episode_index + 1) % EVAL_FREQ == 0:
+                evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
     env.close()
     if output_dir:
         writer.close()
@@ -75,11 +104,12 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     return returns
 
 
-def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None):
+def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
     '''Ensure P-DQN learns within Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
         env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed)
+        eval_env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed+1)
 
         # Setup
         ## Values
@@ -97,6 +127,7 @@ def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir
         env = PlatformFlattenedActionWrapper(env)
         env = ScaledParameterisedActionWrapper(env)  # Parameters -> [-1,1]
         env = ScaledStateWrapper(env)  # Observations -> [-1,1]
+        eval_env = ScaledStateWrapper(ScaledParameterisedActionWrapper(PlatformFlattenedActionWrapper(eval_env)))
 
         ## Agent
         pdqn_setup = {  # TODO: Find & remove redundancy
@@ -130,20 +161,19 @@ def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir
         agent = PDQNAgent(**pdqn_setup)
         agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
-        # Training | TODO: Simplify
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir)
-
-        # Check
+        # Training
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
         return returns
 
 
 
-def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True):
+def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
     '''Ensure P-DQN learns within Goal'''
     for seed in seeds:
 
         # Environment initialisation
         env = _make_env(env_name="Goal-v0", max_steps=max_steps, seed=seed)
+        eval_env = _make_env(env_name="Goal-v0", max_steps=max_steps, seed=seed+1)
 
         # Setup
         ## Scaled actions (Unsure where the reasoning comes from for these)
@@ -168,6 +198,7 @@ def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=Tru
         env = GoalFlattenedActionWrapper(env)
         env = ScaledParameterisedActionWrapper(env)  # Parameters -> [-1,1]
         env = ScaledStateWrapper(env)  # Observations -> [-1,1]
+        eval_env = ScaledStateWrapper(ScaledParameterisedActionWrapper(GoalFlattenedActionWrapper(GoalObservationWrapper(eval_env))))
 
         ## Agent
         pdqn_setup = {  # TODO: Find & remove redundancy
@@ -197,6 +228,6 @@ def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=Tru
         agent = PDQNAgent(**pdqn_setup)
         agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
-        # Training | TODO: Simplify
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir)
+        # Training
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
         return returns
