@@ -164,4 +164,6 @@ outputs/
 outputs/*
 outputs/saved/
 tests/test_output/
+.$diagram-classes.drawio.bkp
+*.DS_Store
 .DS_Store
