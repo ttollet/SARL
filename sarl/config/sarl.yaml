@@ -5,8 +5,8 @@ environment: ???
 parameters:
   train_episodes: 500 #250 # default: 2500; used only by temp_pdqn.py
   max_steps: 500 #250
-  learning_steps: 800000 #400000 # Multiple of 2048
-  cycles: 40 #20 # Factor of learning_steps
+  learning_steps: 600000 #400000 # Multiple of 2048
+  cycles: 600 #20 # Factor of learning_steps
   seeds:
     - 1
     # - 2
