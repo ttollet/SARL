@@ -105,6 +105,8 @@ class HybridPolicy:
             prediction = policy(obs[1])[0]  # Since prediction[1] is irrelevant unused hidden state information
             if obs[0]==-1:
                 prediction = int(prediction)
+        elif policy.__qualname__ == "DQN.predict": 
+            prediction = policy(obs[1])[0]  # DQN's predict returns a tuple of (action, state)
         else:
             prediction = policy(obs[1])
         return prediction

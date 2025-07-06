@@ -21,8 +21,8 @@ def test_train():
     '''Copy of main() in train.py as of 2025-04-24'''
     warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
     initialize(version_base=None, config_path="../sarl/config")
-    job_config = compose(config_name="sarl", overrides=["+experiment=ppo-ppo-goal", "hydra.run.dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}"])
-    hydra_config_setup = compose(config_name="sarl", overrides=["+experiment=ppo-ppo-goal", "hydra.run.dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}", "hydra.runtime.output_dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}"], return_hydra_config=True)
+    job_config = compose(config_name="sarl", overrides=["hydra.run.dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}", "algorithm=dqn-ppo", "environment=platform"])
+    hydra_config_setup = compose(config_name="sarl", overrides=["hydra.run.dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}", "hydra.runtime.output_dir=tests/test_output/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}", "algorithm=dqn-ppo", "environment=platform"], return_hydra_config=True)
     HydraConfig.instance().set_config(cfg=hydra_config_setup)
     # Identify relevant script
     from sarl.snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal  # TODO: Refactor to avoid script-per-combination
