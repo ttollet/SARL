@@ -21,7 +21,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
 @hydra.main(version_base=None, config_path="config", config_name="sarl")
 def main(job_config: DictConfig):
     # Identify relevant script
-    from sarl.snippets.temp_pdqn import test_pdqn_platform, test_pdqn_goal  # TODO: Refactor to avoid script-per-combination
+    from sarl.snippets.pdqn_use import pdqn_platform, pdqn_goal  # TODO: Refactor to avoid script-per-combination
+    from sarl.snippets.qpamdp_use import qpamdp_platform, qpamdp_goal
     from sarl.snippets.converter_use import runConverter  # TODO: Use this via the partial method
     from sarl.snippets.converter_use import ppo_ppo_platform, a2c_ppo_platform, dqn_ppo_platform, ppo_ppo_goal, a2c_ppo_goal, dqn_ppo_goal
     from sarl.snippets.converter_use import ppo_a2c_platform, a2c_a2c_platform, dqn_a2c_platform, ppo_a2c_goal, a2c_a2c_goal, dqn_a2c_goal
@@ -30,9 +31,14 @@ def main(job_config: DictConfig):
     from sarl.snippets.converter_use import ppo_td3_platform, a2c_td3_platform, dqn_td3_platform, ppo_td3_goal, a2c_td3_goal, dqn_td3_goal
     try:
         chosen_script = {  # (Dict mapping config terms to functions)
+            "qpamdp": {
+                "platform": qpamdp_platform,
+                "goal": qpamdp_goal
+            },
+
             "pdqn": {
-                "platform": test_pdqn_platform,
-                "goal": test_pdqn_goal
+                "platform": pdqn_platform,
+                "goal": pdqn_goal
             },
 
             "ppo-ppo": {

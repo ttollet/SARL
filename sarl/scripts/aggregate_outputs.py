@@ -2,8 +2,8 @@
 import os
 import polars as pl
 import altair as alt
-DATES = ["2025-06-03", "2025-06-02"]
-EXCLUDED_EXPERIMENTS = ["pdqn-platform", "pdqn-goal", "--"]
+DATES = ["2025-07-18"]#, "2025-07-07"]
+EXCLUDED_EXPERIMENTS = [] #["pdqn-platform", "pdqn-goal", "--"]
 
 # %% Group directories by experiment
 dirs_by_experiment = {}
@@ -12,13 +12,18 @@ for date in DATES:
     trial_dirs = os.listdir(path)
     experiments = set([f[9:] for f in trial_dirs])
     experiments = experiments - set(EXCLUDED_EXPERIMENTS)
-    dirs_by_experiment = {exp: [] for exp in experiments}
+    # dirs_by_experiment = {exp: [] for exp in experiments}
+    # ^ TODO: FIX THIS LINE, IT OVERWRITES THE DIRS_BY_EXP DIR EACH TIME
+    for exp in experiments:
+        if exp not in dirs_by_experiment.keys():
+            dirs_by_experiment[exp] = []
     for dir in trial_dirs:
         experiment = dir[9:]
         if experiment not in EXCLUDED_EXPERIMENTS:
             dirs_by_experiment[experiment].append(f"{date}/{dir}")
 for experiment, dirs in dirs_by_experiment.items():
     print(f"{experiment}: {dirs[0]}, ...")
+
 
 # %% Form dataframes
 dfs_by_experiment = {}
@@ -40,14 +45,13 @@ for experiment, dirs in dirs_by_experiment.items():
     else:
         df = pl.concat(dfs)
         dfs_by_experiment[experiment] = df
-print(f"File(s) not found:")
+print("File(s) not found:")
 print(*not_found_csv_paths, sep="\n")
-print(f"\nNo dataframes found for experiments:")
+print("\nNo dataframes found for experiments:")
 print(*not_found_experiment, sep="\n")
-print(f"\nDataframes:")
+print("\nDataframes:")
 for experiment, df in dfs_by_experiment.items():
     print(f"{experiment}: {df.shape}")
-
 
 # %% Plot
 experiments = list(dfs_by_experiment.keys())

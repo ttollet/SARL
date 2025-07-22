@@ -1,9 +1,8 @@
-# This is a copy (with minor edits) of the current (at time of writing) corresponding pytest file.
-# This temporarily exists to enable a proof of concept demo.
+# Based on the corresponding pytest file.
 
 import numpy as np
 import gymnasium as gym
-from gymnasium.wrappers import RecordEpisodeStatistics
+from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics
 from tqdm import tqdm
 
 from sarl.common.bester.agents.pdqn import PDQNAgent
@@ -104,7 +103,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     return returns
 
 
-def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
+def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
     '''Ensure P-DQN learns within Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
@@ -167,7 +166,7 @@ def test_pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir
 
 
 
-def test_pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
+def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
     '''Ensure P-DQN learns within Goal'''
     for seed in seeds:
 
