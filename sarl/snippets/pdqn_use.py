@@ -32,7 +32,7 @@ def _pad_action(act, act_param):
 def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
     returns = []
     for i in range(eval_episodes):
-        (obs, steps), info = eval_env.reset(seed=seed+timestep)
+        (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
         episode_over = False
         while not episode_over:
             obs = np.array(obs, dtype=np.float32, copy=False)
@@ -53,10 +53,12 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
     return evaluation_returns
 
 
-
 def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None, eval_env=None, eval_episodes=None):
     '''Train to output a list of returns by timestep.'''
+    if eval_episodes is None:
+        eval_episodes = 15
     EVAL_FREQ = 100
+    # EVAL_FREQ = 500
     if output_dir:
         writer = SummaryWriter(log_dir=output_dir)
 
@@ -103,8 +105,8 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     return returns
 
 
-def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
-    '''Ensure P-DQN learns within Platform'''
+def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None):
+    '''P-DQN agent learns Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
         env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed)
@@ -162,12 +164,14 @@ def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True
 
         # Training
         returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        env.close()
+        eval_env.close()
         return returns
 
 
 
 def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
-    '''Ensure P-DQN learns within Goal'''
+    '''P-DQN agent learns Goal'''
     for seed in seeds:
 
         # Environment initialisation

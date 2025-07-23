@@ -1,3 +1,5 @@
+from logging import info
+
 import numpy as np
 import gymnasium as gym
 from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics
@@ -14,22 +16,84 @@ from sarl.common.bester.environments.gym_goal.envs.config import GOAL_WIDTH, PIT
 
 
 def _wrap_for_qpamdp(env):
-    return QPAMDPScaledParameterisedActionWrapper(ScaledStateWrapper(env))
+    if env.spec.id == 'Platform-v0':
+        return QPAMDPScaledParameterisedActionWrapper(ScaledStateWrapper(env))
+    elif env.spec.id == 'Goal-v0':
+        env = GoalObservationWrapper(env)
+        return QPAMDPScaledParameterisedActionWrapper(ScaledStateWrapper(env))
+    else:
+        raise ValueError("Unsupported environment type")
 
 
-def qpamdp_platform(train_eps=20, max_steps=201, seeds=[1]):
-    '''Ensure Q-PAMDP learns within Platform'''
-    for seed in seeds:
+def _make_env(env_name: str, max_steps: int, seed: int):
+    env = gym.make(env_name)
+    env = RecordEpisodeStatistics(env, deque_size=max_steps)  # Note stats
+    env.seed(seed)  # Remove stochasticity
+    np.random.seed(seed)
+    env = _wrap_for_qpamdp(env)
+    return env
+
+
+def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
+    returns = []
+    for i in range(eval_episodes):
+        (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
+        episode_over = False
+        while not episode_over:
+            obs = np.array(obs, dtype=np.float32, copy=False)
+            # action, act_param, all_action_parameters = agent.act(obs)
+            action = agent.act(obs)
+            (obs, steps), reward, terminated, truncated, info = eval_env.step(action)
+            episode_over = terminated or truncated
+        returns.append(info["episode"]["r"])
+    mean_return = (timestep, np.mean(returns))
+    evaluation_returns.append(mean_return)
+    file_name = f"{log_dir}/eval.csv"
+    print(f"[REWARD]: Mean reward = {mean_return[1]}")
+    print(f"[OUTPUT]: Writing to {file_name}")
+    np.savetxt(fname=file_name, X=np.array(evaluation_returns),
+        header='"training_timesteps","mean_eval_episode_return"',
+        delimiter=',', fmt="%1.3f"
+    )
+    return evaluation_returns
+
+
+def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, eval_env, eval_episodes):
+    if eval_episodes is None:
+        eval_episodes = 15
+    EVAL_FREQ = 100
+    info_per_episode = []
+    evaluation_returns = []
+    train_episodes_subset = train_episodes // EVAL_FREQ
+    # # Initialize the agent
+    # new_info = agent.learn(env, train_episodes_subset, max_steps)
+    # info_per_episode = info_per_episode + new_info
+    # training_timesteps = agent.training_timesteps
+    # evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+    # Complete the training loop
+    # for i in tqdm(range(EVAL_FREQ-1)):
+    for i in tqdm(range(EVAL_FREQ)):
+        # new_info = agent.learn(env, train_episodes_subset, max_steps, resume=True)
+        new_info = agent.learn(env, train_episodes_subset, max_steps)
+        info_per_episode = info_per_episode + new_info
+        training_timesteps = agent.training_timesteps
+        evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+    returns = [info["episode"]["r"] for info in info_per_episode]
+    return returns
+
+
+def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
+    '''Q-PAMDP agent learns Platform'''
+    if len(seeds) > 1:
+        raise ValueError("Only one seed is supported per QPAMDP call")
+    for seed in tqdm(seeds):
         # Env init
-        env = gym.make("Platform-v0")
-        env = RecordEpisodeStatistics(env, deque_size=max_steps)
-        env.seed(seed)
-        np.random.seed(seed)
+        env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed)
+        eval_env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=seed+1)
 
         # Setup
         initial_params = [3., 10., 400.]
         ## Scaling
-        env = _wrap_for_qpamdp(env)
         variances = [0.0001, 0.0001, 0.0001]
         for a in range(env.action_space.spaces[0].n):
             initial_params[a] = 2. * (initial_params[a] - env.action_space.spaces[1].spaces[a].low) / (
@@ -63,24 +127,22 @@ def qpamdp_platform(train_eps=20, max_steps=201, seeds=[1]):
             agent.parameter_weights[a][0, 0] = initial_params[a]
 
         # Training
-        info_per_episode = agent.learn(env, train_eps, max_steps)
-        returns = [info["episode"]["r"] for info in info_per_episode]
-        # print("Ave. return =", sum(returns) / len(returns))
-        # print("Ave. last 100 episode return =", sum(returns[-100:]) / 100.)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        # info_per_episode = agent.learn(env, train_episodes, max_steps)
+        # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()
-        assert returns[0] < returns[-1]
-        # assert returns[-1] > 0.2
+        eval_env.close()
+        return returns
 
 
-def qpamdp_goal(train_eps=4000, max_steps=150, seeds=[1]):
-    '''Ensure Q-PAMDP learns within Goal'''
-    for seed in seeds:
+def qpamdp_goal(train_episodes=4000, max_steps=150, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
+    '''Q-PAMDP agent learns Goal'''
+    if len(seeds) > 1:
+        raise ValueError("Only one seed is supported per QPAMDP call")
+    for seed in tqdm(seeds):
         # Env init
-        env = gym.make("Goal-v0")
-        env = RecordEpisodeStatistics(env, deque_size=max_steps)
-        env.seed(seed)
-        np.random.seed(seed)
-
+        env = _make_env(env_name="Goal-v0", max_steps=max_steps, seed=seed)
+        eval_env = _make_env(env_name="Goal-v0", max_steps=max_steps, seed=seed+1)
 
         # Setup
         ## Values
@@ -95,9 +157,6 @@ def qpamdp_goal(train_eps=4000, max_steps=150, seeds=[1]):
             np.array([[-GOAL_WIDTH / 2 + 1, 0]])
         ]
 
-        ## Env wrappers
-        env = GoalObservationWrapper(env)
-        env = _wrap_for_qpamdp(env)
         ### Scaling
         variances[0] = 0.0001
         variances[1] = 0.0001
@@ -129,14 +188,11 @@ def qpamdp_goal(train_eps=4000, max_steps=150, seeds=[1]):
                             parameter_updates=1000, parameter_rollouts=50, norm_grad=True, print_freq=100,
                             phi0_func=lambda state: np.array([1, state[1], state[1]**2]),
                             phi0_size=3)
-        # agent = QPAMDPAgent(observation_space=env.observation_space.spaces[0],
-        #                     action_space=env.action_space,
-        #                     seed=seed,
-        #                     print_freq=100
-        #                     )
 
         # Training
-        info_per_episode = agent.learn(env, train_eps, max_steps)
-        returns = [info["episode"]["r"] for info in info_per_episode]
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        # info_per_episode = agent.learn(env, train_episodes, max_steps)
+        # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()
-        assert returns[0] < returns[-1]
+        eval_env.close()
+        return returns

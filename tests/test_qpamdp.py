@@ -17,7 +17,7 @@ def _wrap_for_qpamdp(env):
     return QPAMDPScaledParameterisedActionWrapper(ScaledStateWrapper(env))
 
 
-def test_qpamdp_platform(train_eps=20, max_steps=201, seeds=[1]):
+def test_qpamdp_platform(train_eps=200, max_steps=201, seeds=[1]):
     '''Ensure Q-PAMDP learns within Platform'''
     for seed in seeds:
         # Env init
@@ -40,7 +40,7 @@ def test_qpamdp_platform(train_eps=20, max_steps=201, seeds=[1]):
                                                                         "self.player.velocity[0]",
                                                                         "enemy.position[0]",
                                                                         "enemy.dx"])]
-        
+
         # Agent init
         discrete_agent = SarsaLambdaAgent(env.observation_space.spaces[0],
                                           env.action_space.spaces[0],

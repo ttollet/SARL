@@ -3,6 +3,8 @@
 # python3 sarl/train.py +experiment=pdqn-platform parameters.train_episodes=50000
 # python3 sarl/train.py +experiment=ppo-ppo-platform-1h-15seeds parameters.seeds=[1,2]
 # python3 sarl/train.py +experiment=pdqn-platform hydra.job.name="pdqn-platform" parameters.train_episodes=2500
+#
+# python3 sarl/train.py algorithm=ppo-ppo environment=platform hydra.job.name="ppo-ppo-platform" parameters.train_episodes=10000
 
 # tensorboard --logdir=outputs
 

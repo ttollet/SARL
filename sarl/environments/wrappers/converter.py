@@ -39,7 +39,7 @@ class HybridPolicy:
         timestep = self.timestep
         returns = []
         for i in range(eval_episodes):
-            obs, info = eval_mdp.reset(seed=self.seed+cycle)
+            obs, info = eval_mdp.reset(seed=self.seed+cycle+i)
             episode_over = False
             while not episode_over:
                 action = self.predict(obs)
@@ -105,7 +105,7 @@ class HybridPolicy:
             prediction = policy(obs[1])[0]  # Since prediction[1] is irrelevant unused hidden state information
             if obs[0]==-1:
                 prediction = int(prediction)
-        elif policy.__qualname__ == "DQN.predict": 
+        elif policy.__qualname__ == "DQN.predict":
             prediction = policy(obs[1])[0]  # DQN's predict returns a tuple of (action, state)
         else:
             prediction = policy(obs[1])
@@ -134,7 +134,7 @@ class PamdpToMdpView(Env):
             self.action_space = parent.discrete_action_space
         else:
             self.action_space = parent.action_parameter_space
-            if self.combine_continuous_actions:  
+            if self.combine_continuous_actions:
                 # ATTEMPT TO MAKE CONTINUOUS SPACE CONFORM TO SB3 PPO'S REQUIREMENTS
                 self.action_parameter_indices_mapping = self.parent.action_parameter_indices_mapping
                 self.action_space = self.parent.combine(self.action_space)  # Requires effort to restructure output later
@@ -244,7 +244,7 @@ class PamdpToMdp(Wrapper):
             output[i] = np.array(action[self.action_parameter_indices_mapping[i]])
         assert tuple(output) in self.action_parameter_space
         return tuple(output)
-        
+
     def combine(self, space):
         # Receives a tuple of boxes
         # Outputs a single box

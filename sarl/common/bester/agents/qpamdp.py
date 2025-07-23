@@ -38,6 +38,9 @@ class QPAMDPAgent(Agent):
                  print_freq=1):
         super().__init__(observation_space, action_space)
 
+        # Initialize training timestep counter
+        self.training_timesteps = 0
+
         # split the action space into the discrete actions and continuous parameters
         self.discrete_action_space = action_space.spaces[0]
         self.parameter_space = action_space.spaces[1]
@@ -135,15 +138,19 @@ class QPAMDPAgent(Agent):
         param = self._parameter_policy(state, act)
         return self._pad_action(act, param)
 
+    # def learn(self, env, max_episodes=100000, max_steps_per_episode=None, resume=False, start_only=False):
     def learn(self, env, max_episodes=100000, max_steps_per_episode=None):
         """ Learn for a given number of episodes. """
         info_per_episode = []
         self.e = 0
+        # if not resume:
+        self.training_timesteps = 0
         if max_episodes < self.initial_action_learning_episodes:
             warnings.warn("Too few episodes to initialise agent!", UserWarning)
 
         print("Initial discrete action learning for %d episodes..." % self.initial_action_learning_episodes)
         for _ in range(self.initial_action_learning_episodes):
+            print("[DEBUG] ROLLOUT INIT")
             _, __, ___, ____, info = self._rollout(env, update_actions=True, max_steps=max_steps_per_episode, with_info=True)
             info_per_episode.append(info)
             self.e += 1
@@ -170,6 +177,7 @@ class QPAMDPAgent(Agent):
             # update discrete action policy
             print(self.e, "Updating action selection...")
             for _ in range(self.action_relearn_episodes):
+                print("[DEBUG] ROLLOUT RELEARN")
                 self._rollout(env, update_actions=True,
                               max_steps=max_steps_per_episode)
                 self.e += 1
@@ -263,6 +271,7 @@ class QPAMDPAgent(Agent):
             # print (act,param)
             (new_state, time_steps), reward, terminal, truncated, info = env.step(
                 self._pad_action(act, param))
+            self.training_timesteps += time_steps
             new_act = self._action_policy(new_state)
 
             if update_actions:
@@ -316,6 +325,7 @@ class QPAMDPAgent(Agent):
         param_size = self._get_parameters().size
         psi = np.zeros((self.parameter_rollouts, param_size + self.phi0_size))
         for run in range(self.parameter_rollouts):
+            print("[DEBUG] ROLLOUT ENAC/PARAM")
             states, actions, rewards, acts = self._rollout(env, False, max_steps)
             returns[run, 0] = sum(rewards)
             log_grad = np.zeros((param_size,))
