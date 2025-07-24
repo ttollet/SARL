@@ -150,7 +150,6 @@ class QPAMDPAgent(Agent):
 
         print("Initial discrete action learning for %d episodes..." % self.initial_action_learning_episodes)
         for _ in range(self.initial_action_learning_episodes):
-            print("[DEBUG] ROLLOUT INIT")
             _, __, ___, ____, info = self._rollout(env, update_actions=True, max_steps=max_steps_per_episode, with_info=True)
             info_per_episode.append(info)
             self.e += 1
@@ -177,7 +176,6 @@ class QPAMDPAgent(Agent):
             # update discrete action policy
             print(self.e, "Updating action selection...")
             for _ in range(self.action_relearn_episodes):
-                print("[DEBUG] ROLLOUT RELEARN")
                 self._rollout(env, update_actions=True,
                               max_steps=max_steps_per_episode)
                 self.e += 1
@@ -325,7 +323,7 @@ class QPAMDPAgent(Agent):
         param_size = self._get_parameters().size
         psi = np.zeros((self.parameter_rollouts, param_size + self.phi0_size))
         for run in range(self.parameter_rollouts):
-            print("[DEBUG] ROLLOUT ENAC/PARAM")
+            # print("[DEBUG] ROLLOUT ENAC/PARAM")
             states, actions, rewards, acts = self._rollout(env, False, max_steps)
             returns[run, 0] = sum(rewards)
             log_grad = np.zeros((param_size,))
