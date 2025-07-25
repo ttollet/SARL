@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import math
 import numpy as np
 import gymnasium as gym
 from gymnasium import ObservationWrapper
@@ -101,12 +102,17 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
 
 
 def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
-    continuousOnly=None, max_steps=None, learning_steps=None, cycles=None, seeds=[1],
+    continuousOnly=None, max_steps=None, learning_steps=0, cycles=0, seeds=[1],
     use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
     evaluation_interval=1, eval_episodes=15):
     '''Collect data by training a specified HybridPolicy on a given environment
     via conversion.'''
+    learning_steps = learning_steps * 2  # Due to converter
     assert not (discrete_only and continuousOnly)
+    assert learning_steps > 0 and cycles > 0
+    if discreteAlg == "PPO" or continuousAlg == "PPO":
+        ROLLOUT_LEN = 2048  # Adjust as required
+        learning_steps = math.ceil(learning_steps / ROLLOUT_LEN) * ROLLOUT_LEN
     for seed in seeds:
         mdp = _getMDP(env_name, seed)
         eval_mdp = _getMDP(env_name, seed+1)
@@ -116,9 +122,11 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         agent = _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg,
             logging_info, continuousAlg, env_name)
         callbacks = CallbackList([DataCallback()])
+        print(learning_steps)
         agent.learn(learning_steps, cycles=cycles, callback=callbacks,
             progress_bar=True, evaluation_interval=evaluation_interval,
-            eval_mdp=eval_mdp, eval_episodes=eval_episodes, log_dir=origin_log_dir)
+            eval_mdp=eval_mdp, eval_episodes=eval_episodes,
+            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir)
     return True
 
 

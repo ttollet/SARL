@@ -1,4 +1,5 @@
 from logging import info
+import math
 
 import numpy as np
 import gymnasium as gym
@@ -58,26 +59,30 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
     return evaluation_returns
 
 
-def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, eval_env, eval_episodes):
+def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, eval_env, eval_episodes, learning_steps):
+    # NB train_episodes redundant, replaced with learning_steps
     if eval_episodes is None:
         eval_episodes = 15
-    EVAL_FREQ = 100
     info_per_episode = []
     evaluation_returns = []
-    train_episodes_subset = train_episodes // EVAL_FREQ
-    # # Initialize the agent
-    # new_info = agent.learn(env, train_episodes_subset, max_steps)
-    # info_per_episode = info_per_episode + new_info
-    # training_timesteps = agent.training_timesteps
-    # evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+    eps_between_evals = 500
+    # evaluations = math.ceil(train_episodes / eps_between_evals)
+
+    # Initialize the agent
+    new_info = agent.learn(env, eps_between_evals, max_steps)
+    info_per_episode = info_per_episode + new_info
+    training_timesteps = agent.training_timesteps
+    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+
     # Complete the training loop
-    # for i in tqdm(range(EVAL_FREQ-1)):
-    for i in tqdm(range(EVAL_FREQ)):
-        # new_info = agent.learn(env, train_episodes_subset, max_steps, resume=True)
-        new_info = agent.learn(env, train_episodes_subset, max_steps)
+    # for i in range(evaluations-1):
+    while agent.training_timesteps < learning_steps:
+        new_info = agent.learn(env, eps_between_evals, max_steps, resume=True)  # Ensure train_eps >> initial_action_learning_episodes
         info_per_episode = info_per_episode + new_info
         training_timesteps = agent.training_timesteps
         evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+        # if agent.training_timesteps > learning_steps:
+        #     break
     returns = [info["episode"]["r"] for info in info_per_episode]
     return returns
 
@@ -121,13 +126,18 @@ def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None
                             action_obs_index=act_obs_index,
                             variances=variances,  # TODO: How did Masson decide these?
                             discrete_agent=discrete_agent,
-                            print_freq=100
+                            print_freq=100,
+                            # Specified to avoid errors:
+                            initial_action_learning_episodes=100,
+                            parameter_rollouts=40,
+                            parameter_updates=10,
+                            action_relearn_episodes=50
                             )
         for a in range(env.action_space.spaces[0].n):
             agent.parameter_weights[a][0, 0] = initial_params[a]
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps)
         # info_per_episode = agent.learn(env, train_episodes, max_steps)
         # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()
@@ -190,7 +200,7 @@ def qpamdp_goal(train_episodes=4000, max_steps=150, seeds=[1], output_dir=None, 
                             phi0_size=3)
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps)
         # info_per_episode = agent.learn(env, train_episodes, max_steps)
         # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()

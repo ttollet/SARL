@@ -1,6 +1,8 @@
 import numpy as np
 import warnings
 
+from tqdm import tqdm
+
 from sarl.common.bester.agents.agent import Agent
 from sarl.common.bester.agents.basis import SimpleBasis, ScaledBasis, PolynomialBasis
 from sarl.common.bester.agents.sarsa_lambda import SarsaLambdaAgent
@@ -17,6 +19,8 @@ class QPAMDPAgent(Agent):
     """
     name = "Q-PAMDP"
 
+    # NB, initial action learning episodes:parameter_rollouts*parameter_updates:action_relearn_episodes ratio
+    # is roughly 100:1(4:1):1
     def __init__(self, observation_space, action_space,
                  alpha=0.01,
                  initial_action_learning_episodes=10000,
@@ -138,51 +142,60 @@ class QPAMDPAgent(Agent):
         param = self._parameter_policy(state, act)
         return self._pad_action(act, param)
 
-    # def learn(self, env, max_episodes=100000, max_steps_per_episode=None, resume=False, start_only=False):
-    def learn(self, env, max_episodes=100000, max_steps_per_episode=None):
+    def learn(self, env, max_episodes=100000, max_steps_per_episode=None, resume=False, start_only=False):
+    # def learn(self, env, max_episodes=100000, max_steps_per_episode=None):
         """ Learn for a given number of episodes. """
         info_per_episode = []
         self.e = 0
-        # if not resume:
-        self.training_timesteps = 0
-        if max_episodes < self.initial_action_learning_episodes:
-            warnings.warn("Too few episodes to initialise agent!", UserWarning)
+        if not resume:
+            self.training_timesteps = 0
+            if max_episodes < self.initial_action_learning_episodes:
+                warnings.warn("Too few episodes to initialise agent!", UserWarning)
 
-        print("Initial discrete action learning for %d episodes..." % self.initial_action_learning_episodes)
-        for _ in range(self.initial_action_learning_episodes):
-            _, __, ___, ____, info = self._rollout(env, update_actions=True, max_steps=max_steps_per_episode, with_info=True)
-            info_per_episode.append(info)
-            self.e += 1
-            if self.e > max_episodes:
-                break
-
-        while True:
-            self.discrete_agent.temperature = 0.0
-            self.discrete_agent.epsilon = 0.0
-
-            # update parameter policy
-            print(self.e, "Updating parameter selection...")
-            for _ in range(self.parameter_updates):
-                self._parameter_update(env, max_steps_per_episode)
-                self.e += self.parameter_rollouts
-                if self.e > max_episodes:
-                    break
-            if self.e > max_episodes:
-                break
-
-            self.discrete_agent.temperature = 1.0
-            self.discrete_agent.epsilon = 1.0
-
-            # update discrete action policy
-            print(self.e, "Updating action selection...")
-            for _ in range(self.action_relearn_episodes):
-                self._rollout(env, update_actions=True,
-                              max_steps=max_steps_per_episode)
+            print("Initial discrete action learning for %d episodes..." % self.initial_action_learning_episodes)
+            for _ in range(self.initial_action_learning_episodes):
+                _, __, ___, ____, info = self._rollout(env, update_actions=True, max_steps=max_steps_per_episode, with_info=True)
+                info_per_episode.append(info)
                 self.e += 1
                 if self.e > max_episodes:
                     break
-            if self.e > max_episodes:
-                break
+
+        if not start_only:
+            complete_cycle = False  # If assertion error, edit initial_action_learning_episodes, parameter_updates, and action_relearn_episodes
+            # while True:
+            for _ in range(max_episodes - self.e):
+                self.discrete_agent.temperature = 0.0
+                self.discrete_agent.epsilon = 0.0
+
+                # update parameter policy
+                print(self.e, "Updating parameter selection...")
+                for _ in range(self.parameter_updates):
+                    self._parameter_update(env, max_steps_per_episode)
+                    self.e += self.parameter_rollouts
+                    if self.e > max_episodes:
+                        break
+                if self.e > max_episodes:
+                    if not complete_cycle:
+                        raise RuntimeError(f"{self.parameter_updates} Parameter updates => Eps {self.e} > max episodes ({max_episodes}).")
+                    assert complete_cycle
+                    break
+
+                self.discrete_agent.temperature = 1.0
+                self.discrete_agent.epsilon = 1.0
+
+                # update discrete action policy
+                print(self.e, "Updating action selection...")
+                complete_cycle = True
+                for _ in range(self.action_relearn_episodes):
+                    self._rollout(env, update_actions=True,
+                                max_steps=max_steps_per_episode)
+                    self.e += 1
+                    if self.e > max_episodes:
+                        assert complete_cycle
+                        break
+                if self.e > max_episodes:
+                    assert complete_cycle
+                    break
 
         # no stochastic actions for evaluation?
         self.discrete_agent.temperature = 0.0
@@ -269,7 +282,7 @@ class QPAMDPAgent(Agent):
             # print (act,param)
             (new_state, time_steps), reward, terminal, truncated, info = env.step(
                 self._pad_action(act, param))
-            self.training_timesteps += time_steps
+            self.training_timesteps += 1
             new_act = self._action_policy(new_state)
 
             if update_actions:
@@ -288,19 +301,19 @@ class QPAMDPAgent(Agent):
 
         self.R += sum(rewards)
         self._total_episodes += 1
-        if self.print_freq > 0 and self._total_episodes % self.print_freq == 0:
-            if self.print_freq == 1:
-                print("{0:5s} R: {1:.4f} r: {2:.4f}".format(
-                    str(self._total_episodes),
-                    self.R/self._total_episodes,
-                    sum(rewards)))
-            else:
-                # print("{0:5s} R: {1:.4f}".format(str(self._total_episodes), self.R/self._total_episodes))
-                returns = np.array(rewards)  # env.get_episode_rewards())
-                print('{0:5s} R:{1:.5f} P(S):{2:.4f}'.format(
-                    str(self._total_episodes),
-                    sum(returns) / (self._total_episodes),
-                    (np.array(returns) == 50.).sum() / len(returns)))
+        # if self.print_freq > 0 and self._total_episodes % self.print_freq == 0:
+        #     if self.print_freq == 1:
+        #         print("{0:5s} R: {1:.4f} r: {2:.4f}".format(
+        #             str(self._total_episodes),
+        #             self.R/self._total_episodes,
+        #             sum(rewards)))
+        #     else:
+        #         # print("{0:5s} R: {1:.4f}".format(str(self._total_episodes), self.R/self._total_episodes))
+        #         returns = np.array(rewards)  # env.get_episode_rewards())
+        #         print('{0:5s} R:{1:.5f} P(S):{2:.4f}'.format(
+        #             str(self._total_episodes),
+        #             sum(returns) / (self._total_episodes),
+        #             (np.array(returns) == 50.).sum() / len(returns)))
 
         if with_info:
             return states, actions, rewards, acts, info

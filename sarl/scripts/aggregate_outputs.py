@@ -1,28 +1,51 @@
 # %% Imports & Configurations
 import os
+from gymnasium.spaces import discrete
 import polars as pl
 import altair as alt
-DATES = ["2025-07-18"]#, "2025-07-07"]
+DATES = ["2025-07-06", "2025-07-07", "2025-07-25"]
 EXCLUDED_EXPERIMENTS = [] #["pdqn-platform", "pdqn-goal", "--"]
+INCLUDE_ONLY = []
+# INCLUDE_ONLY = ["qpamdp-test"]
 
 # %% Group directories by experiment
+def simplify_experiment_name(experiment):
+    if experiment.startswith("qpamdp"):
+        return experiment
+    elif experiment.startswith("pdqn"):
+        return experiment
+    else:
+        return "-".join(experiment[9:].split("-")[0:3])
+
+def permit(experiment):
+    if experiment in EXCLUDED_EXPERIMENTS:
+        return False
+    elif experiment in INCLUDE_ONLY:
+        return True
+    elif experiment not in INCLUDE_ONLY and INCLUDE_ONLY != []:
+        return False
+    else:
+        return True
+
 dirs_by_experiment = {}
 for date in DATES:
     path = f"../outputs/{date}"
     trial_dirs = os.listdir(path)
-    experiments = set([f[9:] for f in trial_dirs])
+    # experiments = set([f[9:21] for f in trial_dirs])
+    experiments = set([simplify_experiment_name(f) for f in trial_dirs])
     experiments = experiments - set(EXCLUDED_EXPERIMENTS)
     # dirs_by_experiment = {exp: [] for exp in experiments}
     # ^ TODO: FIX THIS LINE, IT OVERWRITES THE DIRS_BY_EXP DIR EACH TIME
     for exp in experiments:
-        if exp not in dirs_by_experiment.keys():
+        if exp not in dirs_by_experiment.keys() and permit(exp):
             dirs_by_experiment[exp] = []
     for dir in trial_dirs:
-        experiment = dir[9:]
-        if experiment not in EXCLUDED_EXPERIMENTS:
+        experiment = simplify_experiment_name(dir)
+        if permit(experiment):
             dirs_by_experiment[experiment].append(f"{date}/{dir}")
-for experiment, dirs in dirs_by_experiment.items():
-    print(f"{experiment}: {dirs[0]}, ...")
+# for experiment, dirs in dirs_by_experiment.items():
+#     print(f"{experiment}: {dirs[0]}, ...")
+print(dirs_by_experiment)
 
 
 # %% Form dataframes
@@ -84,3 +107,49 @@ for discrete_alg in discrete_algs:
         )
         plot = band + line
         plot.save(f"aggregate_outputs/{discrete_alg}_X_{env}_plot.png")
+
+# %% Boxplots
+experiments = list(dfs_by_experiment.keys())
+splits = [experiment.split("-") for experiment in experiments]
+discrete_algs = set()
+envs = set()
+for split in splits:
+    discrete_algs.add(split[0])
+    envs.add(split[-1])
+print(discrete_algs)
+for discrete_alg in discrete_algs:
+    for env in envs:
+        plot_experiments = [e for e in experiments if e.startswith(discrete_alg) and e.endswith(env)]
+        if not plot_experiments:
+            continue
+
+        # Get final 50 evaluations per experiment
+        final_dfs = []
+        for experiment in plot_experiments:
+            df = dfs_by_experiment[experiment]
+            final_50 = df.tail(50)
+            final_dfs.append(final_50)
+
+        df = pl.concat(final_dfs)
+
+        # Exclude extreme outliers using z-score method
+        mean_return = df["mean_eval_episode_return"].mean()
+        std_return = df["mean_eval_episode_return"].std()
+        z_threshold = 3  # Values beyond 3 standard deviations are considered outliers
+
+        df = df.filter(
+            (pl.col("mean_eval_episode_return") - mean_return).abs() <= z_threshold * std_return
+        )
+
+        if not os.path.exists("aggregate_outputs"):
+            os.makedirs("aggregate_outputs")
+
+        boxplot = alt.Chart(df, title=f"Final 50 Evaluations - Discrete {discrete_alg.upper()} on {env.capitalize()}").mark_boxplot().encode(
+            x=alt.X("experiment").title("Experiment"),
+            y=alt.Y("mean_eval_episode_return").title("Mean Return"),
+            color="experiment"
+        ).properties(
+            width=600,
+            height=400
+        )
+        boxplot.save(f"aggregate_outputs/{discrete_alg}_X_{env}_final50_boxplot.png")

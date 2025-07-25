@@ -17,7 +17,7 @@ def _wrap_for_qpamdp(env):
     return QPAMDPScaledParameterisedActionWrapper(ScaledStateWrapper(env))
 
 
-def test_qpamdp_platform(train_eps=200, max_steps=201, seeds=[1]):
+def test_qpamdp_platform(train_eps=2000, max_steps=201, seeds=[1]):
     '''Ensure Q-PAMDP learns within Platform'''
     for seed in seeds:
         # Env init
@@ -57,13 +57,16 @@ def test_qpamdp_platform(train_eps=200, max_steps=201, seeds=[1]):
                             action_obs_index=act_obs_index,
                             variances=variances,  # TODO: How did Masson decide these?
                             discrete_agent=discrete_agent,
-                            print_freq=100
+                            print_freq=100,
+                            initial_action_learning_episodes=50,  # Short for test
+                            parameter_updates=1,  # Short for test
+                            action_relearn_episodes=1  # Short for test
                             )
         for a in range(env.action_space.spaces[0].n):
             agent.parameter_weights[a][0, 0] = initial_params[a]
 
         # Training
-        info_per_episode = agent.learn(env, train_eps, max_steps)
+        info_per_episode = agent.learn(env, train_eps, max_steps)  # Ensure train_eps >> initial_action_learning_episodes
         returns = [info["episode"]["r"] for info in info_per_episode]
         # print("Ave. return =", sum(returns) / len(returns))
         # print("Ave. last 100 episode return =", sum(returns[-100:]) / 100.)
