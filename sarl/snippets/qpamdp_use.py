@@ -65,7 +65,12 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, 
         eval_episodes = 15
     info_per_episode = []
     evaluation_returns = []
-    eps_between_evals = 500
+    eps_between_evals = 500  # should be more than param_updates*param_rollouts+initial_learning?
+    # TODO: Assert and automate eps_between_evals value
+    if env.spec.id=='Goal-v0':
+        eps_between_evals=5100
+    elif env.spec.id=='Platform-v0':
+        eps_between_evals=500
     # evaluations = math.ceil(train_episodes / eps_between_evals)
 
     # Initialize the agent
@@ -145,7 +150,7 @@ def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None
         return returns
 
 
-def qpamdp_goal(train_episodes=4000, max_steps=150, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
+def qpamdp_goal(train_episodes=4000, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
     '''Q-PAMDP agent learns Goal'''
     if len(seeds) > 1:
         raise ValueError("Only one seed is supported per QPAMDP call")
@@ -192,12 +197,23 @@ def qpamdp_goal(train_episodes=4000, max_steps=150, seeds=[1], output_dir=None, 
 
 
         # Agent init
-        agent = QPAMDPAgent(env.observation_space.spaces[0], env.action_space, alpha=alpha_param, initial_action_learning_episodes=4000,
-                            seed=seed, action_obs_index=action_obs_index, parameter_obs_index=param_obs_index,
-                            variances=variances, discrete_agent=discrete_agent, action_relearn_episodes=2000,
-                            parameter_updates=1000, parameter_rollouts=50, norm_grad=True, print_freq=100,
+        agent = QPAMDPAgent(env.observation_space.spaces[0],
+                            action_space=env.action_space, alpha=alpha_param,
+                            seed=seed,
+                            action_obs_index=action_obs_index, parameter_obs_index=param_obs_index,
+                            variances=variances,
+                            discrete_agent=discrete_agent,
+                            print_freq=100,
+                            # Specified to avoid errors:
+                            initial_action_learning_episodes=1000,#4000,
+                            parameter_rollouts=40,#50,  # <- Responsible for self.e in QPAMDP
+                            parameter_updates=100,#1000, #    as updates*rollouts=self.e post param update
+                                                    #    So assert updates*rollouts < max_eps
+                            action_relearn_episodes=2000,
+                            norm_grad=True,
                             phi0_func=lambda state: np.array([1, state[1], state[1]**2]),
-                            phi0_size=3)
+                            phi0_size=3
+                            )
 
         # Training
         returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps)
