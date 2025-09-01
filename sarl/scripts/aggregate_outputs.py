@@ -4,7 +4,8 @@ from gymnasium.spaces import discrete
 import polars as pl
 import matplotlib.pyplot as plt
 import yaml
-DATES = ["2025-08-30", "2025-08-31"]
+DATES = ["2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
+# DATES = ["2025-07-06"]
 
 # %% Data Wrangling
 def get_experiment_name(config):
@@ -45,8 +46,11 @@ df_trials = pl.concat(trial_dfs, rechunk=True)
 df_trials.columns
 
 
-# %% PLOTTING
-# Choose what to plot
+# %% Pre-Plotting
+ENVIRONMENT = {
+    "platform": True,
+    "goal": False
+}
 DISCRETE_ALGS = {
     # Converter
     "ppo": True,
@@ -56,17 +60,21 @@ DISCRETE_ALGS = {
     "qpamdp": True,
     "pdqn": True
 }
-ENVIRONMENT = {
-    "platform": True,
-    "goal": False
-}
+CONTINUOUS_ALGS = dict(zip(
+    ["ddpg", "ppo", "td3", "a2c", "sac"],
+    [1,1,1,1,1]
+))
+PLOT_FILE_NAME = "platform-best-v-baselines"
+
 alg_selection = [alg for alg, selected in DISCRETE_ALGS.items() if selected]
 env_selection = [env for env, selected in ENVIRONMENT.items() if selected]
 assert len(env_selection) == 1
-df_plot = df_trials.filter(pl.col("discrete_alg").is_in(alg_selection)).filter(pl.col("environment").is_in(env_selection))
+df_plot = (df_trials
+           .filter(pl.col("discrete_alg").is_in(alg_selection))
+           .filter(pl.col("environment").is_in(env_selection)))
 df_plot.head()
 
-# %% Plot it
+# %% Plotting
 agg_df = df_plot.group_by(["algorithm", "training_timesteps"]).agg([  # Construct necessary dataframe
         pl.mean("mean_return").alias("ret_mean"),
         pl.std("mean_return").alias("ret_std"),
@@ -94,9 +102,42 @@ for alg in agg_df["algorithm"].unique():
 
 plt.xlabel("Training Timesteps")
 plt.ylabel("Mean Return")
-plt.legend(title="Algorithm", bbox_to_anchor=(1.05, 1), loc="upper left")
+plt.legend(title="Algorithm", bbox_to_anchor=(1.0, 1), loc="upper left")
 plt.title(f"Evaluation Return by Algorithm ({env_selection[0].capitalize()})")
 plt.tight_layout()
+plt.savefig(f"aggregate_outputs/{PLOT_FILE_NAME}.png")
 plt.show()
 
+# %% Debug
+# Count experiments per algorithm-environment combination
+experiment_counts = df_trials.group_by(["algorithm", "environment"]).agg(
+    pl.count().alias("num_experiments")
+).sort(["environment", "algorithm"])
+
+print("Number of experiments per algorithm-environment combination:")
+print(experiment_counts)
+
 # %% Boxplots
+# Create boxplots of mean returns by algorithm
+fig, ax = plt.subplots(figsize=(4, 6))
+
+# Get data for boxplot
+algorithms = agg_df["algorithm"].unique().sort()
+boxplot_data = []
+labels = []
+
+for alg in algorithms:
+    alg_data = agg_df.filter(pl.col("algorithm") == alg)["ret_mean"].to_list()
+    boxplot_data.append(alg_data)
+    labels.append(alg)
+
+# Create boxplot
+bp = ax.boxplot(boxplot_data, labels=labels, patch_artist=False)
+
+# Customize the plot
+ax.set_xlabel("Algorithm")
+ax.set_ylabel("Mean Return")
+ax.set_title(f"Distribution of Mean Returns by Algorithm ({env_selection[0].capitalize()})")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()

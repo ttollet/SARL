@@ -3,7 +3,7 @@ algorithm: ???
 environment: ???
 
 parameters:
-  train_episodes: 1000 #250 # default: 2500; used only by temp_pdqn.py
+  train_episodes: 300032 #250 # default: 2500; used only by temp_pdqn.py
   max_steps: 500 #250
   learning_steps: 300032 #400000 # Multiple of 2048
   cycles: 128 #20 # Factor of learning_steps
