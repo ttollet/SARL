@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import yaml
 DATES = ["2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
 ENVIRONMENT = {
-    "platform": 1,
-    "goal": 0
+    "platform": 0,
+    "goal": 1
 }
 DISCRETE_ALGS = {
     # Converter
@@ -225,7 +225,7 @@ plt.show()
 discrete_algs = df_plot["discrete_alg"].unique().sort()
 continuous_algs = df_plot["continuous_alg"].unique().sort()
 
-# Calculate mean and std for each combination
+# Calculate median and IQR for each combination
 performance_data = []
 for cont_alg in continuous_algs:
     row_data = []
@@ -235,24 +235,25 @@ for cont_alg in continuous_algs:
             (pl.col("continuous_alg") == cont_alg)
         )
         if len(combo_data) > 0:
-            mean_val = combo_data["mean_return"].mean()
-            std_val = combo_data["mean_return"].std()
-            if std_val is not None:
-                cell_value = f"{mean_val:.2f}±{std_val:.2f}"
+            median_val = combo_data["mean_return"].median()
+            q25 = combo_data["mean_return"].quantile(0.25)
+            q75 = combo_data["mean_return"].quantile(0.75)
+            iqr_val = q75 - q25 if q25 is not None and q75 is not None else 0.0
+            if iqr_val is not None:
+                cell_value = f"{median_val:.2f}±{iqr_val:.2f}"
             else:
-                cell_value = f"{mean_val:.2f}±0.00"
+                cell_value = f"{median_val:.2f}±0.00"
         else:
             cell_value = "N/A"
         row_data.append(cell_value)
     performance_data.append(row_data)
-
 # Create the dataframe
 performance_matrix = pl.DataFrame(
-    data=dict(zip(discrete_algs, zip(*performance_data))),
-    schema={alg: pl.Utf8 for alg in discrete_algs}
+    data=dict(zip([alg.upper() for alg in discrete_algs], zip(*performance_data))),
+    schema={alg.upper(): pl.Utf8 for alg in discrete_algs}
 ).with_columns(
-    pl.Series("continuous_alg", continuous_algs)
-).select(["continuous_alg"] + list(discrete_algs))
+    pl.Series("Continuous Algorithm", [alg.upper() for alg in continuous_algs])
+).select(["Continuous Algorithm"] + [alg.upper() for alg in discrete_algs])
 
 # Export to png
 filename = get_unique_filename("aggregate_outputs", str("MATRIX_"+plot_file_name+".tex"))

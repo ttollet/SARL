@@ -24,6 +24,7 @@ altair = "^5.5.0"
 vl-convert-python = "^1.7.0"
 vegafusion = {extras = ["embed"], version = "^2.0.1"}
 vegafusion-python-embed = "^1.6.9"
+pyarrow = "^21.0.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.3.1"
