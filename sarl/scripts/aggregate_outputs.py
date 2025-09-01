@@ -2,154 +2,101 @@
 import os
 from gymnasium.spaces import discrete
 import polars as pl
-import altair as alt
-DATES = ["2025-07-06", "2025-07-07", "2025-07-25"]
-EXCLUDED_EXPERIMENTS = [] #["pdqn-platform", "pdqn-goal", "--"]
-INCLUDE_ONLY = []
-# INCLUDE_ONLY = ["qpamdp-test"]
+import matplotlib.pyplot as plt
+import yaml
+DATES = ["2025-08-30", "2025-08-31"]
 
-# %% Group directories by experiment
-def simplify_experiment_name(experiment):
-    if experiment.startswith("qpamdp"):
-        return experiment
-    elif experiment.startswith("pdqn"):
-        return experiment
-    else:
-        return "-".join(experiment[9:].split("-")[0:3])
+# %% Data Wrangling
+def get_experiment_name(config):
+    experiment = (config['environment'] + "-" +
+                config['algorithm'] + "-" +
+                (str(config["parameters"]["cycles"]) + "cycles-" if "-" in config['algorithm'] else "") +
+                str(config["parameters"]["max_steps"]) + "maxSteps-" +
+                str(config["parameters"]["eval_episodes"]) + "evalEpisodes")
+    return experiment
 
-def permit(experiment):
-    if experiment in EXCLUDED_EXPERIMENTS:
-        return False
-    elif experiment in INCLUDE_ONLY:
-        return True
-    elif experiment not in INCLUDE_ONLY and INCLUDE_ONLY != []:
-        return False
-    else:
-        return True
-
-dirs_by_experiment = {}
-for date in DATES:
-    path = f"../outputs/{date}"
-    trial_dirs = os.listdir(path)
-    # experiments = set([f[9:21] for f in trial_dirs])
-    experiments = set([simplify_experiment_name(f) for f in trial_dirs])
-    experiments = experiments - set(EXCLUDED_EXPERIMENTS)
-    # dirs_by_experiment = {exp: [] for exp in experiments}
-    # ^ TODO: FIX THIS LINE, IT OVERWRITES THE DIRS_BY_EXP DIR EACH TIME
-    for exp in experiments:
-        if exp not in dirs_by_experiment.keys() and permit(exp):
-            dirs_by_experiment[exp] = []
-    for dir in trial_dirs:
-        experiment = simplify_experiment_name(dir)
-        if permit(experiment):
-            dirs_by_experiment[experiment].append(f"{date}/{dir}")
-# for experiment, dirs in dirs_by_experiment.items():
-#     print(f"{experiment}: {dirs[0]}, ...")
-print(dirs_by_experiment)
+trial_dfs = []
+missing_csv = {}
+for date in DATES:  # Populate dataframe
+    for trial_dir in os.listdir(f"../outputs/{date}"):
+        if not os.path.exists(f"../outputs/{date}/{trial_dir}/eval.csv"):
+            config = yaml.safe_load(open(f"../outputs/{date}/{trial_dir}/.hydra/config.yaml"))
+            experiment = get_experiment_name(config)
+            if experiment not in missing_csv: missing_csv[experiment] = []
+            missing_csv[experiment].append(f"../outputs/{date}/{trial_dir}")
+            continue
+        config = yaml.safe_load(open(f"../outputs/{date}/{trial_dir}/.hydra/config.yaml"))
+        experiment = (config['environment'] + "-" +
+                     (config['algorithm'].replace("-", "+")) + "-" +
+                     (str(config["parameters"]["cycles"]) + "cycles-" if "-" in config['algorithm'] else "") +
+                     str(config["parameters"]["max_steps"]) + "maxSteps-" +
+                     str(config["parameters"]["eval_episodes"]) + "evalEpisodes")
+        discrete_alg = (config["algorithm"].split("-")[0] if "-" in config["algorithm"] else config["algorithm"])
+        df_trial = pl.read_csv(f"../outputs/{date}/{trial_dir}/eval.csv",
+            new_columns=["training_timesteps", "mean_return"])
+        df_trial = df_trial.with_columns([
+            pl.lit(experiment).alias("experiment"),
+            pl.lit(config["parameters"]["seeds"][0]).alias("seed"),
+            pl.lit(config["environment"]).alias("environment"),
+            pl.lit(config["algorithm"]).alias("algorithm"),
+            pl.lit(discrete_alg).alias("discrete_alg")])
+        trial_dfs.append(df_trial)
+df_trials = pl.concat(trial_dfs, rechunk=True)
+df_trials.columns
 
 
-# %% Form dataframes
-dfs_by_experiment = {}
-not_found_csv_paths = []
-not_found_experiment = []
-for experiment, dirs in dirs_by_experiment.items():
-    dfs = []
-    for dir in dirs:
-        csv_path = f"../outputs/{dir}/eval.csv"
-        if os.path.exists(csv_path):
-            df = pl.read_csv(csv_path)
-            df.columns = ["training_timesteps", "mean_eval_episode_return"]
-            df = df.with_columns(experiment = pl.lit(f"{experiment} (n={str(len(dirs))})"))
-            dfs.append(df)
-        else:
-            not_found_csv_paths.append(csv_path)
-    if not dfs:
-        not_found_experiment.append(experiment)  # Ensure aggregation handles cases with numerous of same experiment
-    else:
-        df = pl.concat(dfs)
-        dfs_by_experiment[experiment] = df
-print("File(s) not found:")
-print(*not_found_csv_paths, sep="\n")
-print("\nNo dataframes found for experiments:")
-print(*not_found_experiment, sep="\n")
-print("\nDataframes:")
-for experiment, df in dfs_by_experiment.items():
-    print(f"{experiment}: {df.shape}")
+# %% PLOTTING
+# Choose what to plot
+DISCRETE_ALGS = {
+    # Converter
+    "ppo": True,
+    "a2c": False,
+    "dqn": False,
+    # Baselines
+    "qpamdp": True,
+    "pdqn": True
+}
+ENVIRONMENT = {
+    "platform": True,
+    "goal": False
+}
+alg_selection = [alg for alg, selected in DISCRETE_ALGS.items() if selected]
+env_selection = [env for env, selected in ENVIRONMENT.items() if selected]
+assert len(env_selection) == 1
+df_plot = df_trials.filter(pl.col("discrete_alg").is_in(alg_selection)).filter(pl.col("environment").is_in(env_selection))
+df_plot.head()
 
-# %% Plot
-experiments = list(dfs_by_experiment.keys())
-splits = [experiment.split("-") for experiment in experiments]
-discrete_algs = set()
-envs = set()
-for split in splits:
-    discrete_algs.add(split[0])
-    envs.add(split[-1])
+# %% Plot it
+agg_df = df_plot.group_by(["algorithm", "training_timesteps"]).agg([  # Construct necessary dataframe
+        pl.mean("mean_return").alias("ret_mean"),
+        pl.std("mean_return").alias("ret_std"),
+        (pl.count("mean_return") ** 0.5).alias("sqrt_n")
+    ]).with_columns([  # 95% confidence interval = mean ± 1.96 * std/sqrt(n)
+        (pl.col("ret_mean") - 1.96 * pl.col("ret_std")/pl.col("sqrt_n")).alias("ci_low"),
+        (pl.col("ret_mean") + 1.96 * pl.col("ret_std")/pl.col("sqrt_n")).alias("ci_high")
+    ]).sort(["algorithm", "training_timesteps"])
 
-for discrete_alg in discrete_algs:
-    for env in envs:
-        plot_experiments = [e for e in experiments if e.startswith(discrete_alg) and e.endswith(env)]
-        df = pl.concat([dfs_by_experiment[experiment] for experiment in plot_experiments])
-        if not os.path.exists("aggregate_outputs"):
-            os.makedirs("aggregate_outputs")
+# Find the shared maximum timesteps across all algorithms
+max_timesteps_per_alg = agg_df.group_by("algorithm").agg(pl.max("training_timesteps").alias("max_timesteps"))
+shared_max_timesteps = max_timesteps_per_alg["max_timesteps"].min()
+agg_df = agg_df.filter(pl.col("training_timesteps") <= shared_max_timesteps)
 
-        plot = alt.Chart()
-        base = alt.Chart(df, title=f"Discrete {discrete_alg.upper()} on {env.capitalize()}")
-        line = base.mark_line().encode(
-            x="training_timesteps",
-            y="mean(mean_eval_episode_return)",
-            color="experiment"
-        )
-        band = base.mark_area(opacity=0.2).encode(
-            x=alt.X("training_timesteps").title("Training Timesteps"),
-            y=alt.Y("ci0(mean_eval_episode_return)").title("Mean Return"),
-            y2="ci1(mean_eval_episode_return)",
-            color="experiment"
-        )
-        plot = band + line
-        plot.save(f"aggregate_outputs/{discrete_alg}_X_{env}_plot.png")
+for alg in agg_df["algorithm"].unique():
+    sub_df = agg_df.filter(pl.col("algorithm") == alg)
+
+    x = sub_df["training_timesteps"]
+    y = sub_df["ret_mean"]
+    ci_low = sub_df["ci_low"]
+    ci_high = sub_df["ci_high"]
+
+    plt.plot(x, y, label=alg)
+    plt.fill_between(x, ci_low, ci_high, alpha=0.2)
+
+plt.xlabel("Training Timesteps")
+plt.ylabel("Mean Return")
+plt.legend(title="Algorithm", bbox_to_anchor=(1.05, 1), loc="upper left")
+plt.title(f"Evaluation Return by Algorithm ({env_selection[0].capitalize()})")
+plt.tight_layout()
+plt.show()
 
 # %% Boxplots
-experiments = list(dfs_by_experiment.keys())
-splits = [experiment.split("-") for experiment in experiments]
-discrete_algs = set()
-envs = set()
-for split in splits:
-    discrete_algs.add(split[0])
-    envs.add(split[-1])
-print(discrete_algs)
-for discrete_alg in discrete_algs:
-    for env in envs:
-        plot_experiments = [e for e in experiments if e.startswith(discrete_alg) and e.endswith(env)]
-        if not plot_experiments:
-            continue
-
-        # Get final 50 evaluations per experiment
-        final_dfs = []
-        for experiment in plot_experiments:
-            df = dfs_by_experiment[experiment]
-            final_50 = df.tail(50)
-            final_dfs.append(final_50)
-
-        df = pl.concat(final_dfs)
-
-        # Exclude extreme outliers using z-score method
-        mean_return = df["mean_eval_episode_return"].mean()
-        std_return = df["mean_eval_episode_return"].std()
-        z_threshold = 3  # Values beyond 3 standard deviations are considered outliers
-
-        df = df.filter(
-            (pl.col("mean_eval_episode_return") - mean_return).abs() <= z_threshold * std_return
-        )
-
-        if not os.path.exists("aggregate_outputs"):
-            os.makedirs("aggregate_outputs")
-
-        boxplot = alt.Chart(df, title=f"Final 50 Evaluations - Discrete {discrete_alg.upper()} on {env.capitalize()}").mark_boxplot().encode(
-            x=alt.X("experiment").title("Experiment"),
-            y=alt.Y("mean_eval_episode_return").title("Mean Return"),
-            color="experiment"
-        ).properties(
-            width=600,
-            height=400
-        )
-        boxplot.save(f"aggregate_outputs/{discrete_alg}_X_{env}_final50_boxplot.png")
