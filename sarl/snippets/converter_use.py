@@ -113,6 +113,8 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
     if discreteAlg == "PPO" or continuousAlg == "PPO":
         ROLLOUT_LEN = 2048  # Adjust as required
         learning_steps = math.ceil(learning_steps / ROLLOUT_LEN) * ROLLOUT_LEN
+    else:
+        ROLLOUT_LEN = None
     for seed in seeds:
         mdp = _getMDP(env_name, seed)
         eval_mdp = _getMDP(env_name, seed+1)
