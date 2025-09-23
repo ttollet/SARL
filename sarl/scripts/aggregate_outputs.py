@@ -14,7 +14,7 @@ sns.set_palette("colorblind")
 plt.rcParams["lines.linewidth"] = 2
 
 # DATES = ["2025-09-15", "2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
-DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18"]
+DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19"]
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
     "platform": 1,
     "goal": 0
@@ -35,11 +35,11 @@ CONTINUOUS_ALGS = dict(zip(
 BASELINES = ["qpamdp", "pdqn"]
 CYCLE_LOW=1#99
 CYCLE_HIGH=999#129
-WINDOW_SIZE = 350  # -1 to disable
-CI_WINDOW_SIZE = 35
+WINDOW_SIZE = 5  # -1 to disable
+CI_WINDOW_SIZE = 15
 MAX_TIMESTEP_OVERRIDE = 1000000 # Default: None
 MIN_TIMESTEP_OVERRIDE = None  # Default: None
-CONFIDENCE_INTERVALS = False
+CONFIDENCE_INTERVALS = True
 PLOT_TOP=3  # Default: 0
 PLOT_NAME = None  # Default: None
 
@@ -59,6 +59,11 @@ def get_experiment_name(config):
 trial_dfs = []
 missing_csv = {}
 experiment_counters = {}
+def update_exp_counters(experiment):
+    if experiment not in experiment_counters:
+        experiment_counters[experiment] = 1
+    experiment_counters[experiment] += 1
+
 for date in DATES:  # Populate dataframe
     for trial_dir in os.listdir(f"../outputs/{date}"):
         config = yaml.safe_load(open(f"../outputs/{date}/{trial_dir}/.hydra/config.yaml"))
@@ -71,6 +76,7 @@ for date in DATES:  # Populate dataframe
             continue
 
         experiment = get_experiment_name(config)
+        update_exp_counters(experiment)
         discrete_alg = (config["algorithm"].split("-")[0] if "-" in config["algorithm"] else config["algorithm"])
         continuous_alg = (config["algorithm"].split("-")[1] if "-" in config["algorithm"] else config["algorithm"])
 
@@ -83,10 +89,14 @@ for date in DATES:  # Populate dataframe
             pl.lit(config["environment"]).alias("environment"),
             pl.lit(config["algorithm"]).alias("algorithm"),
             pl.lit(discrete_alg).alias("discrete_alg"),
-            pl.lit(continuous_alg).alias("continuous_alg")])
+            pl.lit(continuous_alg).alias("continuous_alg"),
+            pl.lit(range(1,df_trial.height+1)).alias("experiment_counter")])
         trial_dfs.append(df_trial)
 df_trials = pl.concat(trial_dfs, rechunk=True)
 df_trials.head()
+
+# Data Wrangling Debug 0
+# experiment_counters
 
 # %% Data Wrangling Debug
 # Count unique seeds per discrete-continuous algorithm pair
@@ -97,10 +107,10 @@ seed_counts = df_trials.filter(
 ).sort(["environment", "discrete_alg", "continuous_alg"])
 
 print("Unique seeds per discrete-continuous algorithm pair:")
-print(seed_counts.filter(pl.col("discrete_alg") == "dqn"))
+# print(seed_counts.filter(pl.col("discrete_alg") == "dqn"))
+print(seed_counts["n_unique_seeds"].unique())
+
 # %% Data Wrangling Debug 2
-missing_csv
-# %% Data Wrangling Debug 3
 # Find number of trials per algorithm-environment pair
 #num_trials_per_pair = df_trials.group_by(["algorithm", "environment"]).agg(pl.len().alias("num_trials"))
 # num_trials_per_pair["num_trials"].min()
@@ -114,12 +124,6 @@ for env in ["platform", "goal"]:
 
 # Missing experiments?
 # print(missing_csv[list(missing_csv.keys())[0]])
-# %% DEBUG
-df_trials.filter(
-    pl.col("environment") == "platform",
-    pl.col("experiment").str.starts_with("platform-a2c+ddpg"),
-    pl.col("cycles") == 100
-).sort("training_timesteps").head()
 
 # %% Pre-Plotting
 # handle selections
@@ -146,21 +150,51 @@ df_plot = (df_trials
 df_plot.head()
 
 
+# %% Aligning samples per baseline
+# This is the problem, notice how each timestep is the first from that respective seed, but they are all different
+# df_plot.filter(pl.col("algorithm").is_in(BASELINES), pl.col("training_timesteps") < 4000).head()
+# for baseline in BASELINES:
+baseline = BASELINES[0]  # Temp TODO
+
+
+
 # %% Plotting
+
 # compute statistics
-agg_df_init = df_plot.group_by(["algorithm", "training_timesteps"]).agg([  # Construct necessary dataframe
+# agg_df_init0 = df_plot.group_by(["algorithm", "training_timesteps"]).agg([  # Construct necessary dataframe
+agg_df_init = df_plot.group_by(["algorithm", "experiment_counter"]).agg([  # Construct necessary dataframe
+        pl.mean("training_timesteps"),
         pl.mean("mean_return").alias("ret_mean"),
         pl.std("mean_return").alias("ret_std"),
         (pl.count("mean_return") ** 0.5).alias("sqrt_n")
     ]).with_columns([  # 95% confidence interval = mean ± 1.96 * std/sqrt(n)
         (pl.col("ret_mean") - 1.96 * pl.col("ret_std")/pl.col("sqrt_n")).alias("ci_low"),
         (pl.col("ret_mean") + 1.96 * pl.col("ret_std")/pl.col("sqrt_n")).alias("ci_high"),
-    ]).sort(["algorithm", "training_timesteps"
+    ]).sort(["algorithm", "experiment_counter"
     ]).with_columns([
         (pl.col("ret_mean").rolling_mean(window_size=WINDOW_SIZE, center=True).alias("ret_mean_smooth")),
         (pl.col("ci_low").rolling_mean(window_size=CI_WINDOW_SIZE, center=True).alias("ci_low_smooth")),
         (pl.col("ci_high").rolling_mean(window_size=CI_WINDOW_SIZE, center=True).alias("ci_high_smooth"))
     ])
+
+# %% Plotting
+# Ensure identical spacing between samples of Baselines and Converter
+# - Identify density of converter samples (rows per _ timesteps)
+# - Enforce density on baselines (delete at uniform spacing to enforce)
+# - Use gather_every to construct example replacement baseline data
+# - Separate then merge
+#
+# converter_training_step = agg_df_init0.filter(pl.col("algorithm")=="ppo-ppo")["training_timesteps"][0]
+# agg_df_just_baselines = agg_df_init0.filter(pl.col("algorithm").is_in([]))
+# for baseline in BASELINES:
+#     baseline_row_step = agg_df_init0.filter(pl.col("algorithm")==baseline, pl.col("training_timesteps")<converter_training_step).count()["algorithm"][0]
+#     agg_df_just_baselines.extend(agg_df_init0.filter(pl.col("algorithm")==baseline).gather_every(baseline_row_step))
+# agg_df_init = agg_df_init0.filter(~pl.col("algorithm").is_in(BASELINES)).vstack(agg_df_just_baselines)
+
+# %% Debug cont.
+agg_df_init.filter(pl.col("algorithm")=="qpamdp")
+
+# %% Plotting cont.
 
 # filter for best algorithms
 if PLOT_TOP != 0:
@@ -179,20 +213,10 @@ if MAX_TIMESTEP_OVERRIDE:
 
 # find the shared maximum timesteps across all algorithms
 # df_plot.group_by(["algorithm", "seed"]).agg(pl.count("seed"))
-# %%
-# max_timesteps_per_alg = agg_df.group_by("algorithm").agg(pl.max("training_timesteps").alias("max_timesteps"))
-# min_timesteps_per_alg = agg_df.group_by("algorithm").agg(pl.min("training_timesteps").alias("min_timesteps"))
-# if MAX_TIMESTEP_OVERRIDE is not None:
-#     shared_max_timesteps = MAX_TIMESTEP_OVERRIDE
-# else:
-#     shared_max_timesteps = max_timesteps_per_alg["max_timesteps"].min()
-# if MIN_TIMESTEP_OVERRIDE is not None:
-#     shared_min_timesteps = MIN_TIMESTEP_OVERRIDE
-# else:
-#     shared_min_timesteps = min_timesteps_per_alg["min_timesteps"].max()
-# agg_df = (agg_df
-#         .filter(pl.col("training_timesteps") <= shared_max_timesteps)
-#         .filter(pl.col("training_timesteps") >= shared_min_timesteps))
+# %% DEBUG smoothing since baselines are not smoothing as much, likely too frequent sample rate
+agg_df.filter(pl.col("algorithm") == "ppo-ppo").head()
+agg_df["algorithm"].unique()
+
 
 for alg in agg_df["algorithm"].unique():
     sub_df = agg_df.filter(pl.col("algorithm") == alg)
@@ -211,8 +235,8 @@ for alg in agg_df["algorithm"].unique():
 
     # Define line styles for discrete algorithms
     line_styles = {
-        # 'pdqn': ':',     # dashed
-        # 'qpamdp': ':',     # dash-dot
+        'pdqn': ':',
+        'qpamdp': ':',
     }
 
     # Get the discrete algorithm for this algorithm
@@ -223,6 +247,7 @@ for alg in agg_df["algorithm"].unique():
     plt.plot(x, y, label=alg, linestyle=line_style)
     if CONFIDENCE_INTERVALS:
         plt.fill_between(x, ci_low, ci_high, alpha=0.2)
+
 
 plt.xlabel("Training Timesteps")
 plt.ylabel("Mean Evaluation Return")
@@ -338,17 +363,17 @@ df = df_mat_conv
 df_fmt = df.with_columns(
     # (pl.col("mean_return").round(2).cast(str) + " ± " + pl.col("std_return").round(2).cast(str)).alias("val")
     pl.concat_str([
-        pl.col("mean_return").round(4).cast(pl.Utf8),
+        pl.col("mean_return").round(2).cast(pl.Utf8),
         pl.lit(" ± "),
-        pl.col("std_return").round(4).cast(pl.Utf8)
+        pl.col("std_return").round(2).cast(pl.Utf8)
     ]).alias("val")
 )
 df_fmt2 = df_mat_base.with_columns(
     # (pl.col("mean_return").round(2).cast(str) + " ± " + pl.col("std_return").round(2).cast(str)).alias("val")
     pl.concat_str([
-        pl.col("mean_return").round(4).cast(pl.Utf8),
+        pl.col("mean_return").round(2).cast(pl.Utf8),
         pl.lit(" ± "),
-        pl.col("std_return").round(4).cast(pl.Utf8)
+        pl.col("std_return").round(2).cast(pl.Utf8)
     ])
 )
 # step 2: pivot
@@ -371,6 +396,7 @@ for grid in [grid_pd, grid2_pd]:
 grid_pd.columns = [col.upper() for col in grid_pd.columns]
 grid_pd.index.name = "Continuous Alg."
 grid_pd.columns.name = "Discrete Alg."
+grid_pd = grid_pd.transpose()
 
 filename = grid_pd.to_latex(get_unique_filename("aggregate_outputs", str("MATRIX_"+plot_file_name+".tex")), index=False)
 grid2_pd.to_latex(get_unique_filename("aggregate_outputs", str("MATRIX_"+plot_file_name+"_base.tex")), index=False)

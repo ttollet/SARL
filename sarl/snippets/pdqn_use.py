@@ -57,8 +57,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     '''Train to output a list of returns by timestep.'''
     if eval_episodes is None:
         eval_episodes = 15
-    EVAL_FREQ = 100
-    # EVAL_FREQ = 500
+    EVAL_FREQ = 100 # 500
     if output_dir:
         writer = SummaryWriter(log_dir=output_dir)
 
