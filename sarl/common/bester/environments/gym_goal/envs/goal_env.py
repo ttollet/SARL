@@ -169,7 +169,8 @@ class GoalEnv(gym.Env):
         self._resolve_collisions()
         return self._terminal_check()
 
-    def reset(self, seed=None, options=None):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         if seed is not None:
             self.seed(seed=seed)  # Added to conform to new gymnasium requirements
         # TODO: implement reset for each entity to avoid creating new objects and reduce duplicate code
@@ -253,7 +254,7 @@ class GoalEnv(gym.Env):
             self.goalie.velocity,
             [self.goalie.orientation],
             self.ball.position,
-            self.ball.velocity))
+            self.ball.velocity), dtype=np.float32)
         # return self.scale_state(state)
         return state
 

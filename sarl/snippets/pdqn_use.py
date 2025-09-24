@@ -1,4 +1,5 @@
 # Based on the corresponding pytest file.
+# TODO: Remove reference to train_episodes, as only train_timesteps is used
 
 import numpy as np
 import gymnasium as gym
@@ -13,7 +14,7 @@ from sarl.common.bester.common.goal_domain import GoalFlattenedActionWrapper
 from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
 
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
 
 def _make_env(env_name: str, max_steps: int, seed: int):
     env = gym.make(env_name)
@@ -31,7 +32,7 @@ def _pad_action(act, act_param):
 
 def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
     returns = []
-    for i in range(eval_episodes):
+    for i in tqdm(range(eval_episodes), desc="Evaluating"):
         (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
         episode_over = False
         while not episode_over:
@@ -55,31 +56,39 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
 
 def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None, eval_env=None, eval_episodes=None):
     '''Train to output a list of returns by timestep.'''
+    total_timesteps = train_episodes
     if eval_episodes is None:
         eval_episodes = 15
-    EVAL_FREQ = 100 # 500
+    EVAL_FREQ = 12288+1 # 100 # 500
     if output_dir:
-        writer = SummaryWriter(log_dir=output_dir)
+        pass
+        # writer = SummaryWriter(log_dir=output_dir)
 
     info_per_episode = []
     evaluation_returns = []
+    episode_returns = []
     training_timesteps = 0
-    for episode_index in tqdm(range(train_episodes)):
-        (observation, steps), info = env.reset(seed=seed)
+    progress_bar = tqdm(total = total_timesteps+1)
+    while training_timesteps < total_timesteps:
+    # for episode_index in tqdm(range(train_episodes)):
+        # (observation, steps), reward, terminated, truncated, info = env.reset(seed=seed)
+        (observation, steps), _ = env.reset(seed=seed)
+        seed += 1  # This fixes the starting location in goal from being fixed to being dynamic
         observation = np.array(observation, dtype=np.float32, copy=False)
         act, act_param, all_action_parameters = agent.act(observation)
         action = pad_action(act, act_param)
 
         # Episode loop
         agent.start_episode()
-        reward = 0
+        episode_return = 0
         last_timestep = 0
         for timestep in range(max_steps):
-            last_timestep = timestep
+            last_timestep += 1
             (next_observation, steps), reward, terminated, truncated, info = env.step(action)
             next_observation = np.array(next_observation, dtype=np.float32, copy=False)
             next_act, next_act_param, next_all_action_parameters = agent.act(next_observation)
             next_action = pad_action(next_act, next_act_param)
+            episode_return += reward
             r = reward * reward_scale
             agent.step(observation, (act, all_action_parameters), r, next_observation, (next_act, next_all_action_parameters), terminated or truncated, steps)
 
@@ -90,15 +99,24 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
             if terminated or truncated:
                 break
         training_timesteps += last_timestep
+        # episode_returns.append(episode_return)
+        if len(episode_returns) % 100 == 0:
+            progress_bar.update(last_timestep)
+            # env.render()
+            # print(f"{training_timesteps} R:{np.mean(episode_return)}") # DEBUG
         agent.end_episode()
         info_per_episode.append(info)
         if output_dir is not None:
-            writer.add_scalar("Return", info["episode"]["r"], episode_index)
-            if (episode_index + 1) % EVAL_FREQ == 0:
+            # writer.add_scalar("Return", info["episode"]["r"], training_timesteps)
+            if (training_timesteps + 1) % EVAL_FREQ == 0:
+            # writer.add_scalar("Return", info["episode"]["r"], episode_index)
+            # if (episode_index + 1) % EVAL_FREQ == 0:
                 evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
     env.close()
     if output_dir:
-        writer.close()
+        pass
+        # writer.close()
     returns = [info["episode"]["r"] for info in info_per_episode]
     print (f"Start: {returns[0]} | End: {returns[-1]}")
     return returns
@@ -159,7 +177,7 @@ def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True
             "seed": seed
         }
         agent = PDQNAgent(**pdqn_setup)
-        agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
+        # agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
         # Training
         returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
@@ -169,7 +187,7 @@ def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True
 
 
 
-def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=0):
+def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None):
     '''P-DQN agent learns Goal'''
     for seed in seeds:
 
@@ -208,8 +226,9 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
             "action_space": env.action_space,
             "learning_rate_actor": 0.001,  # 0.0001
             "learning_rate_actor_param": 0.00001,  # 0.001
-            "epsilon_steps": 1000,
-            "epsilon_final": 0.01,
+            "epsilon_steps": 1000, # 12288 * 1, # 1000,
+            "epsilon_final": 0.10, # 0.01,
+            "batch_size": 128,
             "gamma": 0.95,
             "clip_grad": 1,
             "indexed": False,
@@ -228,8 +247,14 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
             "seed": seed
         }
         agent = PDQNAgent(**pdqn_setup)
-        agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
+        # agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
+        print(agent)
 
         # Training
         returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        env.close()
+        eval_env.close()
         return returns
+
+
+pdqn_goal(train_episodes=1000000, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=250)
