@@ -14,10 +14,11 @@ sns.set_palette("colorblind")
 plt.rcParams["lines.linewidth"] = 2
 
 # DATES = ["2025-09-15", "2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
-DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19"]
+DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24-old-pdqn", "2025-09-24-no-pdqn", "2025-09-24"]
+EXCLUDE_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
-    "platform": 1,
-    "goal": 0
+    "platform": 0,
+    "goal": 1
 }
 DISCRETE_ALGS = {
     # Converter
@@ -66,6 +67,8 @@ def update_exp_counters(experiment):
 
 for date in DATES:  # Populate dataframe
     for trial_dir in os.listdir(f"../outputs/{date}"):
+        if not os.path.isdir(f"../outputs/{date}/{trial_dir}"):
+            continue
         config = yaml.safe_load(open(f"../outputs/{date}/{trial_dir}/.hydra/config.yaml"))
 
         # Handle missing eval.csv files
@@ -76,6 +79,9 @@ for date in DATES:  # Populate dataframe
             continue
 
         experiment = get_experiment_name(config)
+        if trial_dir in EXCLUDE_PDQN_GOAL and [config[k] for k in ["algorithm", "environment"]] == ["pdqn", "goal"]:
+            # Exclude old PDQN-Goal trials
+            continue
         update_exp_counters(experiment)
         discrete_alg = (config["algorithm"].split("-")[0] if "-" in config["algorithm"] else config["algorithm"])
         continuous_alg = (config["algorithm"].split("-")[1] if "-" in config["algorithm"] else config["algorithm"])

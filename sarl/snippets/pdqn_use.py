@@ -34,6 +34,7 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
     returns = []
     for i in tqdm(range(eval_episodes), desc="Evaluating"):
         (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
+        # seed += 1  # This fixes the starting location in goal from being fixed to being dynamic
         episode_over = False
         while not episode_over:
             obs = np.array(obs, dtype=np.float32, copy=False)
@@ -60,6 +61,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     if eval_episodes is None:
         eval_episodes = 15
     EVAL_FREQ = 12288+1 # 100 # 500
+    EVAL_FREQ = 1000+1 # 100 # 500
     if output_dir:
         pass
         # writer = SummaryWriter(log_dir=output_dir)
@@ -247,7 +249,7 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
             "seed": seed
         }
         agent = PDQNAgent(**pdqn_setup)
-        # agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
+        agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
         print(agent)
 
         # Training
@@ -255,3 +257,5 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
         env.close()
         eval_env.close()
         return returns
+
+# pdqn_goal(train_episodes=1000000, max_steps=500, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=250)
