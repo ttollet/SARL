@@ -258,4 +258,4 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
         eval_env.close()
         return returns
 
-pdqn_goal(train_episodes=1000000, max_steps=500, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=250)
+# pdqn_goal(train_episodes=1000000, max_steps=500, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=250)
