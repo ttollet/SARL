@@ -1,5 +1,4 @@
 # %% Imports & Configurations
-# test
 import os
 from gymnasium.spaces import discrete
 from matplotlib.artist import get
@@ -7,19 +6,20 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import seaborn as sns
 import yaml
 
 sns.set_style("whitegrid")
-sns.set_palette("colorblind")
+# sns.set_palette("colorblind")
 plt.rcParams["lines.linewidth"] = 2
 
 # DATES = ["2025-09-15", "2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
 DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24"]
-EXCLUDE_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
+OLD_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
-    "platform": 0,
-    "goal": 1
+    "platform": 1,
+    "goal": 0
 }
 DISCRETE_ALGS = {
     # Converter
@@ -28,20 +28,21 @@ DISCRETE_ALGS = {
     "dqn": 1,
     # Baselines
     "qpamdp": 1,
-    "pdqn": 1
+    "pdqn": 1,
+    "vanilla_pdqn": 1
 }
 CONTINUOUS_ALGS = dict(zip(
     ["ddpg", "ppo", "td3", "a2c", "sac"],
     [1,1,1,1,1]
 ))
-BASELINES = ["qpamdp", "pdqn"]
+BASELINES = ["qpamdp", "pdqn", "vanilla_pdqn"]
 CYCLE_LOW=1#99
 CYCLE_HIGH=999#129
 WINDOW_SIZE = 5  # -1 to disable
 CI_WINDOW_SIZE = 5
 # MAX_TIMESTEP_OVERRIDE = 1000000 # 700000 # 500000 # 1000000 # Default: None
-# MAX_TIMESTEP_OVERRIDE = 1000000 # Platform
-MAX_TIMESTEP_OVERRIDE = 700000 # Goal
+MAX_TIMESTEP_OVERRIDE = 1000000 # Platform
+# MAX_TIMESTEP_OVERRIDE = 700000 # Goal
 MIN_TIMESTEP_OVERRIDE = None  # Default: None
 CONFIDENCE_INTERVALS = True
 PLOT_TOP=4  # Default: 0
@@ -82,10 +83,9 @@ for date in DATES:  # Populate dataframe
             continue
 
         experiment = get_experiment_name(config)
-        if date in EXCLUDE_PDQN_GOAL and [config[k] for k in ["algorithm", "environment"]] == ["pdqn", "goal"]:
-            # Exclude old PDQN-Goal trials
-            print(f"Skipping {trial_dir} due to old PDQN-Goal")
-            continue
+        if date in OLD_PDQN_GOAL and [config[k] for k in ["algorithm", "environment"]] == ["pdqn", "goal"]:
+            # Update config name
+            config["algorithm"] = "vanilla_pdqn"
         update_exp_counters(experiment)
         discrete_alg = (config["algorithm"].split("-")[0] if "-" in config["algorithm"] else config["algorithm"])
         continuous_alg = (config["algorithm"].split("-")[1] if "-" in config["algorithm"] else config["algorithm"])
@@ -103,7 +103,8 @@ for date in DATES:  # Populate dataframe
             pl.lit(range(1,df_trial.height+1)).alias("experiment_counter")])
         trial_dfs.append(df_trial)
 df_trials = pl.concat(trial_dfs, rechunk=True)
-df_trials.head()
+# df_trials.head()
+df_trials.filter(pl.col("algorithm") == "vanilla_pdqn")
 
 # Data Wrangling Debug 0
 # experiment_counters
@@ -129,7 +130,7 @@ df_seeds_per_exp = df_trials.filter(
     ).group_by(["experiment", "cycles", "environment", "discrete_alg"]
     ).agg(pl.col("seed").n_unique().alias("n_seeds"))
 for env in ["platform", "goal"]:
-    for alg in BASELINES+["ppo", "dqn", "a2c"]:
+    for alg in ["vanilla_pdqn"]: # BASELINES+["ppo", "dqn", "a2c"]:
         print(df_seeds_per_exp.filter((pl.col("environment") == env) & (pl.col("discrete_alg") == alg)))
 
 # Missing experiments?
@@ -141,6 +142,8 @@ env_selection = [env for env, selected in ENVIRONMENT.items() if selected]
 alg_selection = [alg for alg, selected in DISCRETE_ALGS.items() if selected]
 continuous_alg_selection = [alg for alg, selected in CONTINUOUS_ALGS.items() if selected]+BASELINES
 
+alg_selection
+# %% Pre-Plotting
 # name plot
 assert len(env_selection) == 1
 if PLOT_NAME is None:
@@ -157,7 +160,7 @@ df_plot = (df_trials
            .filter(pl.col("continuous_alg").is_in(continuous_alg_selection))
            # .filter((pl.col("cycles") > CYCLE_LOW) & (pl.col("cycles") < CYCLE_HIGH))
 )
-df_plot.head()
+df_plot.filter(pl.col("algorithm").is_in(["vanilla-pdqn"])).head()
 
 
 # %% Aligning samples per baseline
@@ -202,7 +205,7 @@ agg_df_init = df_plot.group_by(["algorithm", "experiment_counter"]).agg([  # Con
 # agg_df_init = agg_df_init0.filter(~pl.col("algorithm").is_in(BASELINES)).vstack(agg_df_just_baselines)
 
 # %% Debug cont.
-agg_df_init.filter(pl.col("algorithm")=="qpamdp")
+agg_df_init.filter(pl.col("algorithm")=="vanilla-pdqn")
 
 # %% Plotting cont.
 
@@ -226,39 +229,50 @@ if MAX_TIMESTEP_OVERRIDE:
 # find the shared maximum timesteps across all algorithms
 # df_plot.group_by(["algorithm", "seed"]).agg(pl.count("seed"))
 # %% DEBUG smoothing since baselines are not smoothing as much, likely too frequent sample rate
-agg_df.filter(pl.col("algorithm") == "ppo-ppo").head()
-agg_df["algorithm"].unique()
+# agg_df.filter(pl.col("algorithm") == "ppo-ppo").head()
+# sub_df = agg_df.filter(pl.col("algorithm")=="pdqn")
+# pl.Series([0.0]).extend(sub_df["training_timesteps"])
 
 
+# %%
 for alg in agg_df["algorithm"].unique():
     sub_df = agg_df.filter(pl.col("algorithm") == alg)
 
-    x = sub_df["training_timesteps"]
+    x = pl.Series([0.0]).append(sub_df["training_timesteps"])
     if WINDOW_SIZE != -1:
         # Apply moving average smoothing
-        y = sub_df["ret_mean_smooth"]
+        y = pl.Series([0.0]).append(sub_df["ret_mean_smooth"])
+        # y = sub_df["ret_mean_smooth"]
         window_size = min(WINDOW_SIZE, len(y))
-        ci_low = sub_df["ci_low_smooth"]
-        ci_high = sub_df["ci_high_smooth"]
+        ci_low = pl.Series([0.0]).append(sub_df["ci_low_smooth"])
+        ci_high = pl.Series([0.0]).append(sub_df["ci_high_smooth"])
     else:
-        y = sub_df["ret_mean"]
-        ci_low = sub_df["ci_low"]
-        ci_high = sub_df["ci_high"]
+        y = pl.Series([0.0]).append(sub_df["ret_mean"])
+        ci_low = pl.Series([0.0]).append(sub_df["ci_low_smooth"])
+        ci_high = pl.Series([0.0]).append(sub_df["ci_high_smooth"])
 
     # Define line styles for discrete algorithms
     line_styles = {
         'pdqn': ':',
+        'vanilla_pdqn': ':',
         'qpamdp': ':',
     }
-    # color_styles = {
-    #     'pdqn': 'blue',
-    #     'qpamdp': 'green',
-    #     'dqn-sac': 'orange'
-    # }
+    palette = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple", "tab:brown", "tab:pink", "tab:gray", "tab:olive", "tab:cyan"]
+    color_styles = {
+        'pdqn': palette[0],
+        'vanilla_pdqn': palette[1],
+        'ppo-sac': palette[2],
+        'dqn-td3': palette[3],
+        'dqn-sac': palette[4],
+        'qpamdp': palette[5],
+        'dqn-ddpg': palette[6],
+        'a2c-sac': palette[7],
+    }
 
     # Get the discrete algorithm for this algorithm
     discrete_alg = alg.split('+')[0] if '+' in alg else alg
     line_style = line_styles.get(discrete_alg, '-')  # default to solid if not found
+    color = color_styles.get(discrete_alg, 'black')  # default to black if not found
 
     # Plot this algorithm
     plt.plot(x, y, label=alg, linestyle=line_style)

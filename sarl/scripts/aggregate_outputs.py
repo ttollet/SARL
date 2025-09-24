@@ -17,8 +17,8 @@ plt.rcParams["lines.linewidth"] = 2
 DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24"]
 EXCLUDE_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
-    "platform": 1,
-    "goal": 0
+    "platform": 0,
+    "goal": 1
 }
 DISCRETE_ALGS = {
     # Converter
@@ -38,7 +38,9 @@ CYCLE_LOW=1#99
 CYCLE_HIGH=999#129
 WINDOW_SIZE = 5  # -1 to disable
 CI_WINDOW_SIZE = 5
-MAX_TIMESTEP_OVERRIDE = 1000000 # 700000 # 500000 # 1000000 # Default: None
+# MAX_TIMESTEP_OVERRIDE = 1000000 # 700000 # 500000 # 1000000 # Default: None
+# MAX_TIMESTEP_OVERRIDE = 1000000 # Platform
+MAX_TIMESTEP_OVERRIDE = 700000 # Goal
 MIN_TIMESTEP_OVERRIDE = None  # Default: None
 CONFIDENCE_INTERVALS = True
 PLOT_TOP=4  # Default: 0
@@ -354,7 +356,8 @@ discrete_algs = df_plot["discrete_alg"].unique().sort()
 continuous_algs = df_plot["continuous_alg"].unique().sort()
 df_mat_data = {"discrete_alg":[], "continuous_alg":[], "mean_return":[], "std_return":[]}
 def get_ret_from_alg2(alg):
-    delta = 50
+    # delta = 50  # Platform
+    delta = 4000  # Goal
     # alg = "qpamdp"
     alg_df = agg_df_init.filter(
         pl.col("algorithm") == alg
