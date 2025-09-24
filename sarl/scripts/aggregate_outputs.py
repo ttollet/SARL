@@ -14,11 +14,11 @@ sns.set_palette("colorblind")
 plt.rcParams["lines.linewidth"] = 2
 
 # DATES = ["2025-09-15", "2025-08-30", "2025-08-31", "2025-07-06", "2025-07-07"]
-DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24-old-pdqn", "2025-09-24-no-pdqn", "2025-09-24"]
+DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24"]
 EXCLUDE_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
-    "platform": 0,
-    "goal": 1
+    "platform": 1,
+    "goal": 0
 }
 DISCRETE_ALGS = {
     # Converter
@@ -37,11 +37,11 @@ BASELINES = ["qpamdp", "pdqn"]
 CYCLE_LOW=1#99
 CYCLE_HIGH=999#129
 WINDOW_SIZE = 5  # -1 to disable
-CI_WINDOW_SIZE = 15
-MAX_TIMESTEP_OVERRIDE = 1000000 # Default: None
+CI_WINDOW_SIZE = 5
+MAX_TIMESTEP_OVERRIDE = 1000000 # 700000 # 500000 # 1000000 # Default: None
 MIN_TIMESTEP_OVERRIDE = None  # Default: None
 CONFIDENCE_INTERVALS = True
-PLOT_TOP=3  # Default: 0
+PLOT_TOP=4  # Default: 0
 PLOT_NAME = None  # Default: None
 
 
@@ -79,8 +79,9 @@ for date in DATES:  # Populate dataframe
             continue
 
         experiment = get_experiment_name(config)
-        if trial_dir in EXCLUDE_PDQN_GOAL and [config[k] for k in ["algorithm", "environment"]] == ["pdqn", "goal"]:
+        if date in EXCLUDE_PDQN_GOAL and [config[k] for k in ["algorithm", "environment"]] == ["pdqn", "goal"]:
             # Exclude old PDQN-Goal trials
+            print(f"Skipping {trial_dir} due to old PDQN-Goal")
             continue
         update_exp_counters(experiment)
         discrete_alg = (config["algorithm"].split("-")[0] if "-" in config["algorithm"] else config["algorithm"])
@@ -204,12 +205,14 @@ agg_df_init.filter(pl.col("algorithm")=="qpamdp")
 
 # filter for best algorithms
 if PLOT_TOP != 0:
-    top_three = agg_df_init.group_by("algorithm").agg(
-        pl.max("ret_mean_smooth").alias("max_ret_mean_smooth")
-    ).sort("max_ret_mean_smooth", descending=True).filter(
+    top = agg_df_init.group_by("algorithm").agg(
+        pl.max("ret_mean").alias("max_ret_mean")
+    ).sort("max_ret_mean", descending=True).filter(
+    #     pl.max("ret_mean_smooth").alias("max_ret_mean_smooth")
+    # ).sort("max_ret_mean_smooth", descending=True).filter(
         ~pl.col("algorithm").is_in(BASELINES)
-    ).head(3)["algorithm"]
-    agg_df = agg_df_init.filter(pl.col("algorithm").is_in(top_three) | pl.col("algorithm").is_in(BASELINES))
+    ).head(PLOT_TOP)["algorithm"]
+    agg_df = agg_df_init.filter(pl.col("algorithm").is_in(top) | pl.col("algorithm").is_in(BASELINES))
 else:
     agg_df = agg_df_init
 
@@ -244,6 +247,11 @@ for alg in agg_df["algorithm"].unique():
         'pdqn': ':',
         'qpamdp': ':',
     }
+    # color_styles = {
+    #     'pdqn': 'blue',
+    #     'qpamdp': 'green',
+    #     'dqn-sac': 'orange'
+    # }
 
     # Get the discrete algorithm for this algorithm
     discrete_alg = alg.split('+')[0] if '+' in alg else alg
@@ -304,12 +312,16 @@ def get_ret_from_alg(alg):
         pl.col("algorithm") == alg
     )
     best_timestep = alg_df.filter(
+        #     pl.col("ret_mean_smooth").round(2) == alg_df["ret_mean_smooth"].round(2).max()
+        # )["training_timesteps"].unique()[0]
             pl.col("ret_mean_smooth") == alg_df["ret_mean_smooth"].max()
         )["training_timesteps"].unique()
     alg_df_plot = df_plot.filter(
         pl.col("algorithm") == alg
     ).filter(
-        (pl.col("training_timesteps") == best_timestep)
+        (pl.col("training_timesteps") == best_timestep),
+        # (pl.col("training_timesteps") > best_timestep-delta),
+        # (pl.col("training_timesteps") < best_timestep+delta)
     )
     return alg_df_plot.sort("training_timesteps")["mean_return"].to_list()
 
@@ -341,12 +353,31 @@ plt.savefig(filename)
 discrete_algs = df_plot["discrete_alg"].unique().sort()
 continuous_algs = df_plot["continuous_alg"].unique().sort()
 df_mat_data = {"discrete_alg":[], "continuous_alg":[], "mean_return":[], "std_return":[]}
+def get_ret_from_alg2(alg):
+    delta = 50
+    # alg = "qpamdp"
+    alg_df = agg_df_init.filter(
+        pl.col("algorithm") == alg
+    )
+    best_timestep = alg_df.filter(
+            pl.col("ret_mean_smooth").round(2) == alg_df["ret_mean_smooth"].round(2).max()
+        )["training_timesteps"].unique()[0]
+    alg_df_plot = df_plot.filter(
+        pl.col("algorithm") == alg
+    ).filter(
+        # (pl.col("training_timesteps") == best_timestep)
+        (pl.col("training_timesteps") > best_timestep-delta),
+        (pl.col("training_timesteps") < best_timestep+delta)
+    )
+# alg_df_plot.sort("training_timesteps")["mean_return"].to_list()
+    return alg_df_plot.sort("training_timesteps")["mean_return"].to_list()
 for alg1 in discrete_algs:
     for alg2 in continuous_algs:
         df_mat_data["discrete_alg"].append(alg1)
         df_mat_data["continuous_alg"].append(alg2)
         if alg1 in BASELINES:
-            alg_data = get_ret_from_alg(alg1)
+            # alg_data = get_ret_from_alg(alg1)
+            alg_data = get_ret_from_alg2(alg1)
         else:
             alg_data = get_ret_from_alg(alg1+"-"+alg2)
         df_mat_data["mean_return"].append(np.mean(alg_data))
@@ -407,4 +438,47 @@ grid_pd = grid_pd.transpose()
 filename = grid_pd.to_latex(get_unique_filename("aggregate_outputs", str("MATRIX_"+plot_file_name+".tex")), index=False)
 grid2_pd.to_latex(get_unique_filename("aggregate_outputs", str("MATRIX_"+plot_file_name+"_base.tex")), index=False)
 
+print(grid2_pd)
+# %%
 print(grid_pd)
+
+# %% Bonus last minute
+def get_ret_from_alg3(alg):
+    delta = 4000 # Goal
+    # delta = 50 # Platform
+    # alg = "qpamdp"
+    alg_df = agg_df_init.filter(
+        pl.col("algorithm") == alg
+    )
+    best_timestep = alg_df.filter(
+            pl.col("ret_mean_smooth").round(2) == alg_df["ret_mean_smooth"].round(2).max()
+        )["training_timesteps"].unique()[0]
+    alg_df_plot = df_plot.filter(
+        pl.col("algorithm") == alg
+    ).filter(
+        # (pl.col("training_timesteps") == best_timestep)
+        (pl.col("training_timesteps") > best_timestep-delta),
+        (pl.col("training_timesteps") < best_timestep+delta)
+    )
+    return alg_df_plot.sort("training_timesteps")["mean_return"].to_list()
+
+for alg in ["qpamdp", "pdqn"]:
+    data = get_ret_from_alg3(alg)
+    print(np.mean(data))
+    print(np.std(data))
+    print()
+
+# %%
+# df_mat_data = {"discrete_alg":[], "continuous_alg":[], "mean_return":[], "std_return":[]}
+# for alg1 in discrete_algs:
+#     for alg2 in continuous_algs:
+#         df_mat_data["discrete_alg"].append(alg1)
+#         df_mat_data["continuous_alg"].append(alg2)
+#         if alg1 in BASELINES:
+#             alg_data = get_ret_from_alg2(alg1)
+#         else:
+#             alg_data = get_ret_from_alg(alg1+"-"+alg2)
+#         df_mat_data["mean_return"].append(np.mean(alg_data))
+#         df_mat_data["std_return"].append(np.std(alg_data))
+
+# df_mat.head()

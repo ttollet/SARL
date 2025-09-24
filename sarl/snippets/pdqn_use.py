@@ -249,7 +249,7 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
             "seed": seed
         }
         agent = PDQNAgent(**pdqn_setup)
-        agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
+        # agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
         print(agent)
 
         # Training
