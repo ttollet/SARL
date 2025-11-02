@@ -5,12 +5,12 @@ description = "Algorithms and environments for structured action-space reinforce
 authors = ["Theodore Tollet <t.tollet@lancaster.ac.uk>"]
 
 [tool.poetry.dependencies]
-python = "^3.9, <3.12"
+python = "^3.10, <3.12"
 numpy = "^1.24.4"
 pygame = "^2.4.0"
 numba = "^0.57.0"
 gymnasium = "^0.28.1"
-torch = "^1.13.1"
+torch = "^2.0.1"  # "^1.13.1"
 click = "^8.1.3"
 tqdm = "^4.66.1"
 hydra-core = "^1.3.2"
