@@ -167,3 +167,4 @@ tests/test_output/
 .$diagram-classes.drawio.bkp
 *.DS_Store
 .DS_Store
+pyrightconfig.json
