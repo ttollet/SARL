@@ -18,9 +18,10 @@ plt.rcParams["lines.linewidth"] = 2
 DATES = ["2025-09-15", "2025-09-16", "2025-09-17", "2025-09-18", "2025-09-19", "2025-09-20", "2025-09-21", "2025-09-22", "2025-09-23", "2025-09-24"]
 OLD_PDQN_GOAL = DATES[:-1]  # Only take last date for pdqn-goal
 ENVIRONMENT = {  # NB: Selections, set to 1 to plot, 0 to exclude
-    "platform": 1,
-    "goal": 0
+    "platform": 0,
+    "goal": 1
 }
+ENV_ZERO = 0.0 # Goal
 DISCRETE_ALGS = {
     # Converter
     "ppo": 1,
@@ -41,8 +42,8 @@ CYCLE_HIGH=999#129
 WINDOW_SIZE = 5  # -1 to disable
 CI_WINDOW_SIZE = 5
 # MAX_TIMESTEP_OVERRIDE = 1000000 # 700000 # 500000 # 1000000 # Default: None
-MAX_TIMESTEP_OVERRIDE = 1000000 # Platform
-# MAX_TIMESTEP_OVERRIDE = 700000 # Goal
+# MAX_TIMESTEP_OVERRIDE = 1000000 # Platform
+MAX_TIMESTEP_OVERRIDE = 700000 # Goal
 MIN_TIMESTEP_OVERRIDE = None  # Default: None
 CONFIDENCE_INTERVALS = True
 PLOT_TOP=4  # Default: 0
@@ -238,18 +239,17 @@ if MAX_TIMESTEP_OVERRIDE:
 for alg in agg_df["algorithm"].unique():
     sub_df = agg_df.filter(pl.col("algorithm") == alg)
 
-    x = pl.Series([0.0]).append(sub_df["training_timesteps"])
+    x = pl.Series([ENV_ZERO]).append(sub_df["training_timesteps"])
     if WINDOW_SIZE != -1:
         # Apply moving average smoothing
-        y = pl.Series([0.0]).append(sub_df["ret_mean_smooth"])
+        y = pl.Series([ENV_ZERO]).append(sub_df["ret_mean_smooth"])
         # y = sub_df["ret_mean_smooth"]
         window_size = min(WINDOW_SIZE, len(y))
-        ci_low = pl.Series([0.0]).append(sub_df["ci_low_smooth"])
-        ci_high = pl.Series([0.0]).append(sub_df["ci_high_smooth"])
     else:
-        y = pl.Series([0.0]).append(sub_df["ret_mean"])
-        ci_low = pl.Series([0.0]).append(sub_df["ci_low_smooth"])
-        ci_high = pl.Series([0.0]).append(sub_df["ci_high_smooth"])
+        y = pl.Series([ENV_ZERO]).append(sub_df["ret_mean"])
+
+    ci_low = pl.Series([sub_df["ci_low_smooth"][0]-sub_df["ret_mean_smooth"][0]]).append(sub_df["ci_low_smooth"])
+    ci_high = pl.Series([sub_df["ci_high_smooth"][0]-sub_df["ret_mean_smooth"][0]]).append(sub_df["ci_high_smooth"])
 
     # Define line styles for discrete algorithms
     line_styles = {
@@ -275,9 +275,9 @@ for alg in agg_df["algorithm"].unique():
     color = color_styles.get(discrete_alg, 'black')  # default to black if not found
 
     # Plot this algorithm
-    plt.plot(x, y, label=alg, linestyle=line_style)
+    plt.plot(x, y, color=color, label=alg, linestyle=line_style)
     if CONFIDENCE_INTERVALS:
-        plt.fill_between(x, ci_low, ci_high, alpha=0.2)
+        plt.fill_between(x, ci_low, ci_high, color=color, alpha=0.2)
 
 
 plt.xlabel("Training Timesteps")
