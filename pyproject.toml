@@ -27,6 +27,7 @@ vegafusion-python-embed = "^1.6.9"
 pyarrow = "^21.0.0"
 seaborn = "^0.13.2"
 ax-platform = "^1.1.2"
+submitit = "^1.5.3"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.3.1"

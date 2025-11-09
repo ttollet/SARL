@@ -3683,6 +3683,25 @@ pure-eval = "*"
 tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
+name = "submitit"
+version = "1.5.3"
+description = "\"Python 3.8+ toolbox for submitting jobs to Slurm"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "submitit-1.5.3-py3-none-any.whl", hash = "sha256:ccc35100da12fe916541489deccccb6b9fa93dae8c01ade53e7f643552dc1795"},
+    {file = "submitit-1.5.3.tar.gz", hash = "sha256:d1cbc5d8859b519b1e47adc4aaa6001dcefe8a835f3032b151cb3de7d2841068"},
+]
+
+[package.dependencies]
+cloudpickle = ">=1.2.1"
+typing_extensions = ">=3.7.4.2"
+
+[package.extras]
+dev = ["black (==23.3.0)", "coverage[toml] (>=5.1)", "flit (>=3.5.1)", "isort (==5.11.5)", "mypy (>=1.4.1)", "pre-commit (>=1.15.2)", "pylint (>=3.0.0)", "pytest (>=7.4.2)", "pytest-asyncio (>=0.15.0)", "pytest-cov (>=4.1.0)"]
+
+[[package]]
 name = "sympy"
 version = "1.14.0"
 description = "Computer algebra system (CAS) in Python"
@@ -4216,4 +4235,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10, <3.12"
-content-hash = "2b219edf00fc54c3a12fdd8ba70406be24cce7167c07a62183524982d3ee88ea"
+content-hash = "a53b315bd68984f7d39a37eebc914f659800e0823251656fc27c8a647f623efd"
