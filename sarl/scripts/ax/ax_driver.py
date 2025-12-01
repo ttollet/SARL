@@ -43,8 +43,10 @@ UPDATE_RATIO_PARAM = RangeParameterConfig(
     parameter_type="float",
     scaling="log"
 )
-DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
-CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
+DISCRETE_ALGS = ["ppo"]
+CONTINUOUS_ALGS = ["ppo"]
+# DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
+# CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
 
 # ---- SCRIPT START ----
@@ -90,12 +92,12 @@ for pair, env in list(product(pairs, ENVS)):
                 f"environment={env}",
                 f"parameters.seeds={SEED}",
                 f"parameters.train_episodes={TRAIN_EPISODES}",
-                # TODO: [3] Calls train.py with correct alg/env and params
+                # DONE: [3] Calls train.py with correct alg/env and params
                 # f"params={params}"
             ])
             HydraConfig.instance().set_config(cfg)  # manually register config
-            main(cfg)  # TODO: [4] train.py returns mean_reward of trained policy
-        return {"mean_reward": 1, "std_reward": 0}
+            (mean_reward, std_reward) = main(cfg)  # TODO: [4] main() returns mean_reward of trained policy
+        return {"mean_reward": mean_reward, "std_reward": std_reward}
 
     # STEP 2 - Setup Experiment via Ax
     client = Client()

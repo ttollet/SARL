@@ -122,7 +122,8 @@ def main(job_config: DictConfig):
     output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
 
-    return chosen_script(**job_config["parameters"], output_dir=output_dir)
+    return (1, 0)  # TODO: Replace with mean & std reward
+    # return chosen_script(**job_config["parameters"], output_dir=output_dir)
 
 
 if __name__ == "__main__":
