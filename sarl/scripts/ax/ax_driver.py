@@ -36,13 +36,15 @@ MIN_GAMMA = 0.9
 MAX_GAMMA = 0.9999
 # - misc:
 SEED = 42
-ENVS = ["platform"]  # ["platform", "goal"]
+ENVS = ["platform"]  # TODO: Set correct final ENVS
+# ["platform", "goal"]
 UPDATE_RATIO_PARAM = RangeParameterConfig(
     name="update_ratio",
     bounds=(0.1, 0.9),
     parameter_type="float",
     scaling="log"
 )
+# TODO: Set correct final *_ALGS
 DISCRETE_ALGS = ["ppo"]
 CONTINUOUS_ALGS = ["ppo"]
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
@@ -50,17 +52,13 @@ CONTINUOUS_ALGS = ["ppo"]
 
 
 # ---- SCRIPT START ----
+cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
+
 def get_params_by_alg(label:str = ""):
     shared_params = [
         RangeParameterConfig(
             name=f"{label}_learning_rate",
             bounds=(MIN_LR, MAX_LR),
-            parameter_type="float",
-            scaling="log"
-        ),
-        RangeParameterConfig(
-            name=f"{label}_gamma",
-            bounds=(MIN_GAMMA, MAX_GAMMA),
             parameter_type="float",
             scaling="log"
         ),
@@ -73,66 +71,83 @@ def get_params_by_alg(label:str = ""):
         "sac": shared_params + [],
         "td3": shared_params + [],
     }
-
-pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(get_params_by_alg().keys(), repeat=2)]
-cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
+# pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(get_params_by_alg().keys(), repeat=2)]
+pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_ALGS)]
 
 
 # %% Optimisation
-for pair, env in list(product(pairs, ENVS)):
-    # STEP 1 - Define the Function to Optimise
-    def objective_function(params: dict[str, list[RangeParameterConfig]]):
-        # DONE: [1] Calls train.py w/o params
-        # DONE: [2] Calls train.py with correct alg/env
-        GlobalHydra.instance().clear()  # critical reset
-        with initialize(config_path=HYDRA_CONFIG_PATH):
-            cfg = compose(config_name="sarl", overrides=[
-                f"hydra.job.name={pair.replace('-', '_')}-{env}-{SEED}",
-                f"algorithm={pair}",
-                f"environment={env}",
-                f"parameters.seeds={SEED}",
-                f"parameters.train_episodes={TRAIN_EPISODES}",
-                # DONE: [3] Calls train.py with correct alg/env and params
-                # f"params={params}"
-            ])
-            HydraConfig.instance().set_config(cfg)  # manually register config
-            (mean_reward, std_reward) = main(cfg)  # TODO: [4] main() returns mean_reward of trained policy
-        return {"mean_reward": mean_reward, "std_reward": std_reward}
+def optimise():
+    for pair, env in list(product(pairs, ENVS)):
+        def get_client():
+            # Setup Experiment via Ax
+            client = Client()
+            alg1, alg2 = pair.split("-")
+            params = get_params_by_alg("discrete")[alg1] + get_params_by_alg("continuous")[alg2]
+            params = params + [UPDATE_RATIO_PARAM]
+            client.configure_experiment(name="sarl_opt", parameters=params)  # INFO: What to guess [A]
+            client.configure_optimization(objective="mean_reward")  # INFO: What to optimise [B]
+            return client
+        client = get_client()
 
-    # STEP 2 - Setup Experiment via Ax
-    client = Client()
-    alg1, alg2 = pair.split("-")
-    params = get_params_by_alg("discrete")[alg1] + get_params_by_alg("continuous")[alg2]
-    params = params + [UPDATE_RATIO_PARAM]
-    client.configure_experiment(name="sarl_opt", parameters=params)
-    client.configure_optimization(objective="mean_reward")
+        def get_executor():
+            # Setup SubmitIt
+            executor = AutoExecutor(folder=SUBMITIT_DIR, cluster=cluster)
+            executor.update_parameters(timeout_min=60) # Timeout of the slurm job. Not including slurm scheduling delay.
+            executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
+            return executor
+        executor = get_executor()
 
-    # STEP 3 - Setup SubmitIt
-    executor = AutoExecutor(folder=SUBMITIT_DIR, cluster=cluster)
-    executor.update_parameters(timeout_min=60) # Timeout of the slurm job. Not including slurm scheduling delay.
-    executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
+        # def objective_function(params: dict[str, list[RangeParameterConfig]]):
+        def objective_function(params: dict[str, float]):
+            # Define the Function to Optimise.
+            # Calls main() from train.py with an automated hydra config.
+            GlobalHydra.instance().clear()  # critical reset
+            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEED}")):
+                cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
+                        f"algorithm={pair}",
+                        f"environment={env}",
+                        f"parameters.seeds={SEED}",
+                        f"parameters.train_episodes={TRAIN_EPISODES}",
+                        # TODO: Calls train.py with correct alg/env and general params
+                        f"parameters.alg_params.learning_rate={params['learning_rate']}",
+                    ])
+                HydraConfig.instance().set_config(cfg)  # manually register config
+                mean_reward = main(cfg)  # TODO: [2] main() returns mean_reward
+            return {"mean_reward": mean_reward}#, "std_reward": std_reward}
 
-    # STEP 4 - Run the Experiment
-    jobs = []
-    submitted_jobs = 0
-    while submitted_jobs < MAX_TRIALS or jobs:
-        for job, trial_index in jobs[:]:
-            # Monitor for completed jobs
-            if job.done() or type(job) in [LocalJob, DebugJob]:
-                results = job.result()
-                _ = client.complete_trial(trial_index=trial_index, raw_data=results)
-                _ = jobs.remove((job, trial_index))
-            time.sleep(1)
+        def toy_func():
+            params = {"learning_rate": 0.5}
+            print(objective_function(params))
+            return True
+        toy_func()
+        break
 
-        trial_index_to_param = client.get_next_trials(
-            min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
-        )
-        for trial_index, parameters in trial_index_to_param.items():
-            job = executor.submit(objective_function, parameters)
-            submitted_jobs += 1
-            jobs.append((job, trial_index))
-            time.sleep(1)
+        def run_parallel_exps():
+            # Run the Experiment
+            jobs = []
+            submitted_jobs = 0
+            while submitted_jobs < MAX_TRIALS or jobs:
+                for job, trial_index in jobs[:]:  # INFO: Ax learns how any previous guesses went [D]
+                    # Monitor for completed jobs
+                    if job.done() or type(job) in [LocalJob, DebugJob]:
+                        results = job.result()
+                        _ = client.complete_trial(trial_index=trial_index, raw_data=results)
+                        _ = jobs.remove((job, trial_index))
+                    time.sleep(1)
 
-    time.sleep(30)
-# TODO: Save best parameterisations & corresponding mean rewards
-# TODO: Save visualisations
+                trial_index_to_param = client.get_next_trials(  # INFO: Ax makes guesses [C]
+                    min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
+                )
+                for trial_index, parameters in trial_index_to_param.items():
+                    job = executor.submit(objective_function, parameters)
+                    submitted_jobs += 1
+                    jobs.append((job, trial_index))
+                    time.sleep(1)
+
+            time.sleep(30)
+            best_param, best_mean_reward = 0, 0  # TODO: Save best parameterisations & corresponding mean rewards
+            return (best_param, best_mean_reward)
+
+        def visualise():  # TODO: Save visualisations
+            pass
+optimise()
