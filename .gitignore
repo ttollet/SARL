@@ -168,3 +168,4 @@ tests/test_output/
 *.DS_Store
 .DS_Store
 pyrightconfig.json
+sarl/scripts/ax/submitit/

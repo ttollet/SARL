@@ -27,12 +27,12 @@ SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
 CPU_CORES_PER_TASK = 4
-MAX_TRIALS = 2  # Big effect on duration
+MAX_TRIALS = 40  # Big effect on duration
 PARALLEL_LIMIT = 2 # 40
 TRAIN_EPISODES = int(1000000 / 10)
 # - common bounds
-MIN_LR = 1e-6
-MAX_LR = 1e-3
+MIN_LR = 0 #1e-6
+MAX_LR = 1 #1e-3
 MIN_GAMMA = 0.9
 MAX_GAMMA = 0.9999
 # - misc:
@@ -43,11 +43,11 @@ UPDATE_RATIO_PARAM = RangeParameterConfig(
     name="update_ratio",
     bounds=(0.1, 0.9),
     parameter_type="float",
-    scaling="log"
+    scaling="linear"
 )
 # TODO: Set correct final *_ALGS
 DISCRETE_ALGS = ["ppo"]
-CONTINUOUS_ALGS = ["ppo"]
+CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
@@ -61,19 +61,20 @@ def get_params_by_alg(label:str = ""):
             name=f"{label}_learning_rate",
             bounds=(MIN_LR, MAX_LR),
             parameter_type="float",
-            scaling="log"
+            scaling="linear"
         ),
     ]
     return {
         "a2c": shared_params + [],
         "dqn": shared_params + [],
-        "ppo": shared_params + [],
+        "ppo": shared_params + [],  # INFO: Consider batch size
         "ddpg": shared_params + [],
         "sac": shared_params + [],
         "td3": shared_params + [],
     }
 # pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(get_params_by_alg().keys(), repeat=2)]
 pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_ALGS)]
+
 
 
 # %% Optimisation
@@ -154,13 +155,15 @@ def optimise():
                         # Monitor for completed jobs
                         if job.done() or type(job) in [LocalJob, DebugJob]:
                             results = job.result()
+
+                            print(results)  # TODO: Check working well
                             _ = client.complete_trial(trial_index=trial_index, raw_data=results)
                             _ = jobs.remove((job, trial_index))
-                        # TODO: Reintroduce sleep() for Slurm
+                        # WARN: Reintroduce sleep() for Slurm
                         # time.sleep(1)
                 run_trials()
                 learn_from_any_previous_trials()
-                # TODO: Reintroduce sleep() for Slurm
+                # WARN: Reintroduce sleep() for Slurm
                 # time.sleep(30)
             best = client.get_best_parameterization()  # TODO: Save best parameterisations & corresponding mean rewards
             # best_param, best_mean_reward = 0, 0
