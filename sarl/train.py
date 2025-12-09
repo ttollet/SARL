@@ -125,8 +125,7 @@ def main(job_config: DictConfig):
     def toy_func_to_optimise():
         alg_params = job_config["parameters"]["alg_params"]
         print(alg_params)
-        print(alg_params["learning_rate"])
-        return (alg_params["learning_rate"] - 0.5) ** 2  # TODO: Replace with mean & std reward
+        return (alg_params["discrete_learning_rate"] - 0.5) ** 2  # TODO: Replace with mean & std reward
     return toy_func_to_optimise()  # TODO: Pass learning_rate to toy_func
     # return chosen_script(**job_config["parameters"], output_dir=output_dir)
 

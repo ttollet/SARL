@@ -5,6 +5,7 @@
 
 # %% Setup
 # Imports
+from profile import run
 import time
 from itertools import product
 
@@ -22,11 +23,11 @@ from sarl.train import main
 # Constants
 # - set every time:
 LOCAL_DEBUG_MODE = True  # Set to True for local debugging
-SUBMITIT_DIR = "sarl/scripts/ax/submitit"
+SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
 CPU_CORES_PER_TASK = 4
-MAX_TRIALS = 10  # Big effect on duration
+MAX_TRIALS = 2  # Big effect on duration
 PARALLEL_LIMIT = 2 # 40
 TRAIN_EPISODES = int(1000000 / 10)
 # - common bounds
@@ -108,45 +109,64 @@ def optimise():
                         f"environment={env}",
                         f"parameters.seeds={SEED}",
                         f"parameters.train_episodes={TRAIN_EPISODES}",
-                        # TODO: Calls train.py with correct alg/env and general params
-                        f"parameters.alg_params.learning_rate={params['learning_rate']}",
+                        f"parameters.alg_params.discrete_learning_rate={params['discrete_learning_rate']}",
+                        f"parameters.alg_params.continuous_learning_rate={params['continuous_learning_rate']}",
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
-                mean_reward = main(cfg)  # TODO: [2] main() returns mean_reward
+                mean_reward = main(cfg)  # TODO: [1] main() returns mean_reward
             return {"mean_reward": mean_reward}#, "std_reward": std_reward}
 
-        def toy_func():
-            params = {"learning_rate": 0.5}
-            print(objective_function(params))
-            return True
-        toy_func()
-        break
+        # This demonstrates the objective_function works
+        # def toy_func():
+        #     params = {"learning_rate": 0.5}
+        #     print(objective_function(params))
+        #     return True
+        # toy_func()
 
         def run_parallel_exps():
             # Run the Experiment
+            """
+            Returns list of:
+                - The parameters predicted to have the best optimization value without
+                    violating any outcome constraints.
+                - The metric values for the best parameterization. Uses model prediction if
+                    ``use_model_predictions=True``, otherwise returns observed data.
+                - The trial which most recently ran the best parameterization
+                - The name of the best arm (each trial has a unique name associated with
+                    each parameterization)
+            """
             jobs = []
+            global submitted_jobs
             submitted_jobs = 0
             while submitted_jobs < MAX_TRIALS or jobs:
-                for job, trial_index in jobs[:]:  # INFO: Ax learns how any previous guesses went [D]
-                    # Monitor for completed jobs
-                    if job.done() or type(job) in [LocalJob, DebugJob]:
-                        results = job.result()
-                        _ = client.complete_trial(trial_index=trial_index, raw_data=results)
-                        _ = jobs.remove((job, trial_index))
-                    time.sleep(1)
-
-                trial_index_to_param = client.get_next_trials(  # INFO: Ax makes guesses [C]
-                    min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
-                )
-                for trial_index, parameters in trial_index_to_param.items():
-                    job = executor.submit(objective_function, parameters)
-                    submitted_jobs += 1
-                    jobs.append((job, trial_index))
-                    time.sleep(1)
-
-            time.sleep(30)
-            best_param, best_mean_reward = 0, 0  # TODO: Save best parameterisations & corresponding mean rewards
-            return (best_param, best_mean_reward)
+                def run_trials():
+                    global submitted_jobs
+                    trial_index_to_param = client.get_next_trials(  # INFO: Ax makes guesses [C]
+                        min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
+                    )
+                    for trial_index, parameters in trial_index_to_param.items():
+                        job = executor.submit(objective_function, parameters)
+                        submitted_jobs += 1
+                        jobs.append((job, trial_index))
+                        time.sleep(1)
+                def learn_from_any_previous_trials():
+                    for job, trial_index in jobs[:]:  # INFO: Ax learns how any previous guesses went [D]
+                        # Monitor for completed jobs
+                        if job.done() or type(job) in [LocalJob, DebugJob]:
+                            results = job.result()
+                            _ = client.complete_trial(trial_index=trial_index, raw_data=results)
+                            _ = jobs.remove((job, trial_index))
+                        # TODO: Reintroduce sleep() for Slurm
+                        # time.sleep(1)
+                run_trials()
+                learn_from_any_previous_trials()
+                # TODO: Reintroduce sleep() for Slurm
+                # time.sleep(30)
+            best = client.get_best_parameterization()  # TODO: Save best parameterisations & corresponding mean rewards
+            # best_param, best_mean_reward = 0, 0
+            return best
+        outcome = run_parallel_exps()
+        print(f"\n[RESULT] {outcome[0]} results in {outcome[1]} observed on trial {outcome[2]}")
 
         def visualise():  # TODO: Save visualisations
             pass
