@@ -8,6 +8,8 @@
 from profile import run
 import time
 from itertools import product
+import warnings
+from statistics import mean
 
 import numpy as np
 from submitit import AutoExecutor, LocalJob, DebugJob
@@ -19,6 +21,8 @@ from ax.api.client import Client
 from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 
 from sarl.train import main
+
+warnings.filterwarnings("ignore")  # TODO: Ensure works
 
 # Constants
 # - set every time:
@@ -51,8 +55,158 @@ CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
+# %% ---- Toy Approach ----
+"""
+Requires stable_baselines3, gymnasium, ax-platform, matplotlib.
+"""
+import matplotlib.pyplot as plt
+import gymnasium as gym
+from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics
+from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
+from sarl.common.bester.agents.pdqn import PDQNAgent
+from sarl.common.bester.common.wrappers import ScaledStateWrapper, ScaledParameterisedActionWrapper
+from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
 
-# ---- SCRIPT START ----
+def _get_mean_reward(episodes, agent, env, max_steps, seed, reward_scale=1):
+    '''Train to output a list of returns by timestep.'''
+    def pad_action(act, act_param):
+        params = [np.zeros((2,)), np.zeros((1,)), np.zeros((1,))]
+        params[act] = act_param
+        return (act, params)
+    num_episodes = 0
+    returns = []
+    while num_episodes < 15:
+        seed += 1
+        (observation, steps), _ = env.reset(seed=seed)
+        observation = np.array(observation, dtype=np.float32, copy=False)
+        act, act_param, all_action_parameters = agent.act(observation)
+        action = pad_action(act, act_param)
+
+        # Episode loop
+        agent.start_episode()
+        episode_return = 0
+        last_timestep = 0
+        for timestep in range(max_steps):
+            last_timestep += 1
+            (next_observation, steps), reward, terminated, truncated, info = env.step(action)
+            next_observation = np.array(next_observation, dtype=np.float32, copy=False)
+            next_act, next_act_param, next_all_action_parameters = agent.act(next_observation)
+            next_action = pad_action(next_act, next_act_param)
+
+            episode_return += reward
+            r = reward * reward_scale
+
+            agent.step(observation, (act, all_action_parameters), r, next_observation, (next_act, next_all_action_parameters), terminated or truncated, steps)
+            act, act_param, all_action_parameters = next_act, next_act_param, next_all_action_parameters
+            action = next_action
+            observation = next_observation
+            if terminated or truncated:
+                break
+        agent.end_episode()
+        num_episodes += 1
+        returns.append(episode_return)
+    env.close()
+    return mean(returns)
+
+def _init_agent(env, seed):
+    pdqn_setup = {
+        "observation_space": env.observation_space.spaces[0],
+        "action_space": env.action_space,
+        "learning_rate_actor": 0.001,  # 0.0001
+        "learning_rate_actor_param": 0.00001,  # 0.001
+        "epsilon_steps": 1000,
+        "epsilon_final": 0.01,
+        "gamma": 0.95,
+        "clip_grad": 1,
+        "indexed": False,
+        "average": False,
+        "random_weighted": False,
+        "tau_actor": 0.1,
+        "weighted": False,
+        "tau_actor_param": 0.001,
+        "initial_memory_threshold": 128,
+        "use_ornstein_noise": True,
+        "replay_memory_size": 20000,
+        "inverting_gradients": True,
+        "actor_kwargs": {'hidden_layers': (128,),
+                         'action_input_layer': 0},
+        "actor_param_kwargs": {
+            'hidden_layers': (128,),
+            'output_layer_init_std': 1e-4,
+            'squashing_function': False},
+        "zero_index_gradients": False,
+        "seed": seed
+    }
+    return PDQNAgent(**pdqn_setup)
+
+def _make_env(env_name: str, max_steps: int, seed: int):
+    env = gym.make(env_name)
+    env = RecordEpisodeStatistics(env, deque_size=max_steps)  # Note stats
+    env.seed(seed)  # Remove stochasticity
+    np.random.seed(seed)
+
+    # Setup from pdqn_use.py
+    initial_params_ = [3., 10., 400.]
+    for a in range(env.action_space.spaces[0].n):
+        initial_params_[a] = 2. * (initial_params_[a] - env.action_space.spaces[1].spaces[a].low) / (
+                    env.action_space.spaces[1].spaces[a].high - env.action_space.spaces[1].spaces[a].low) - 1.
+    # initial_weights = np.zeros((env.action_space.spaces[0].n, env.observation_space.spaces[0].shape[0]))
+    initial_bias = np.zeros(env.action_space.spaces[0].n)
+    for a in range(env.action_space.spaces[0].n):
+        initial_bias[a] = initial_params_[a]
+    ## Env Wrappers | TODO: Convert to environment options
+    env = PlatformFlattenedActionWrapper(env)
+    env = ScaledParameterisedActionWrapper(env)  # Parameters -> [-1,1]
+    env = ScaledStateWrapper(env)  # Observations -> [-1,1
+
+    return env
+
+# config
+max_steps = 500
+episodes = 15
+optim_steps = 20
+
+# init
+# TODO: Specify max_steps, seed
+client = Client()
+parameters = [
+    RangeParameterConfig(
+        name="learning_rate", parameter_type="float", bounds=(0, 0.1), scaling="linear"
+    )]
+client.configure_experiment(name="cartpole-ppo", parameters=parameters)  # INFO: What to guess [A]
+client.configure_optimization(objective="mean_reward")  # INFO: What to optimise [B]
+
+# loop
+mean_rewards = []
+learning_rates = []
+for _ in range(optim_steps):
+    trials = client.get_next_trials(max_trials=5)  # INFO: Ax makes guesses [C]
+    for trial_index, parameters in trials.items():
+        env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=trial_index)
+        agent = _init_agent(env, trial_index)
+        mean_reward = _get_mean_reward(episodes=episodes, agent=agent, env=env, max_steps=max_steps, seed=trial_index)  # TODO: Specify
+        mean_rewards.append(mean_reward)
+        learning_rates.append(parameters["learning_rate"])
+        _trial_status = client.complete_trial(  # INFO: Ax learns how the guesses went [D]
+            trial_index=trial_index, raw_data={"mean_reward": mean_reward}
+        )
+
+# %% output
+best = client.get_best_parameterization()
+print(best)
+
+# %% Outcome
+# plt.plot(mean_rewards)
+# plt.xlabel("Iteration")
+sorted_values = sorted(zip(learning_rates, mean_rewards))
+sorted_lr, sorted_mean_rewards = zip(*sorted_values)
+plt.plot(sorted_lr, sorted_mean_rewards)
+plt.xlabel("Learning Rate")
+plt.ylabel("Mean Reward")
+plt.savefig("mean_rewards_rl.png")
+plt.show()
+
+# %% ---- SCRIPT START ----
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 
 def get_params_by_alg(label:str = ""):
