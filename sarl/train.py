@@ -122,12 +122,13 @@ def main(job_config: DictConfig):
     output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
 
-    def toy_func_to_optimise():  # TODO: Replace with mean & std reward
-        alg_params = job_config["parameters"]["alg_params"]
-        print(alg_params)
-        return -((alg_params["discrete_learning_rate"] - 0.5) ** 2)
-    return toy_func_to_optimise()
+    # def toy_func_to_optimise():  # TODO: Replace with mean & std reward
+    #     alg_params = job_config["parameters"]["alg_params"]
+    #     print(alg_params)
+    #     return -((alg_params["discrete_learning_rate"] - 0.5) ** 2)
+    # return toy_func_to_optimise()
     # return chosen_script(**job_config["parameters"], output_dir=output_dir)
+    return True
 
 
 if __name__ == "__main__":
