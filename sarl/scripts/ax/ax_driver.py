@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore")  # TODO: Ensure works
 
 # Constants
 # - set every time:
-LOCAL_DEBUG_MODE = True  # Set to True for local debugging
+LOCAL_DEBUG_MODE = True  # TODO: Set to True for local debugging
 SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
@@ -71,6 +71,14 @@ from sarl.common.bester.environments.gym_platform.envs import PlatformEnv
 from sarl.common.bester.agents.pdqn import PDQNAgent
 from sarl.common.bester.common.wrappers import ScaledStateWrapper, ScaledParameterisedActionWrapper
 from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
+
+
+# config
+max_steps = 500
+train_episodes = 2_500 # int(10_000 / 4)
+test_episodes = 1_000
+optim_steps = 5  #20
+
 
 def _get_mean_reward(train_episodes, test_episodes, agent, env, max_steps, seed, reward_scale=1):
     '''Train to output a list of returns by timestep.'''
@@ -167,12 +175,6 @@ def _make_env(env_name: str, max_steps: int, seed: int):
 
     return env
 
-# config
-max_steps = 500
-train_episodes = 2_500 # int(10_000 / 4)
-test_episodes = 1_000
-optim_steps = 5  #20
-
 # init
 # TODO: Specify max_steps, seed
 client = Client()
@@ -219,7 +221,7 @@ plt.savefig("mean_rewards_rl.png")
 plt.show()
 
 # %% ---- SCRIPT START ----
-quit()  # TODO REMOVE THIS LINE
+quit()  # TODO: REMOVE THIS LINE
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 
 def get_params_by_alg(label:str = ""):
@@ -244,6 +246,8 @@ pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_AL
 
 
 # %% Optimisation
+# INFO: From source code of ax: the aqcuisition function used is qLogNoisyExpectedImprovement in BoTorch.
+# See line 29 of https://github.com/facebook/Ax/blob/main/ax/generators/torch/botorch_modular/utils.py
 def optimise():
     for pair, env in list(product(pairs, ENVS)):
         def get_client():
