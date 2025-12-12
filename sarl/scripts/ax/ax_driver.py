@@ -1,4 +1,5 @@
 # To be run on a SLURM login node.
+#
 # Based on advice from:
 # - https://ax.dev/docs/0.5.0/tutorials/submitit/
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
@@ -12,6 +13,7 @@ import warnings
 from statistics import mean
 
 import numpy as np
+from tqdm import tqdm
 from submitit import AutoExecutor, LocalJob, DebugJob
 from hydra import initialize, compose
 from hydra.core.hydra_config import HydraConfig
@@ -56,6 +58,9 @@ CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
 # %% ---- Toy Approach ----
+# INFO: Increased training episodes results in decreased optimal learning rate
+# WARN: Training is not seperated from evaluation
+# WARN: Training time is insufficient to reach theorectical convergence (~0.9 mean_reward)
 """
 Requires stable_baselines3, gymnasium, ax-platform, matplotlib.
 """
@@ -67,52 +72,53 @@ from sarl.common.bester.agents.pdqn import PDQNAgent
 from sarl.common.bester.common.wrappers import ScaledStateWrapper, ScaledParameterisedActionWrapper
 from sarl.common.bester.common.platform_domain import PlatformFlattenedActionWrapper
 
-def _get_mean_reward(episodes, agent, env, max_steps, seed, reward_scale=1):
+def _get_mean_reward(train_episodes, test_episodes, agent, env, max_steps, seed, reward_scale=1):
     '''Train to output a list of returns by timestep.'''
     def pad_action(act, act_param):
         params = [np.zeros((2,)), np.zeros((1,)), np.zeros((1,))]
         params[act] = act_param
         return (act, params)
-    num_episodes = 0
     returns = []
-    while num_episodes < 15:
-        seed += 1
-        (observation, steps), _ = env.reset(seed=seed)
-        observation = np.array(observation, dtype=np.float32, copy=False)
-        act, act_param, all_action_parameters = agent.act(observation)
-        action = pad_action(act, act_param)
+    for episodes in [train_episodes, test_episodes]:
+        returns = []
+        for _ in tqdm(range(episodes)):
+            seed += 1
+            (observation, steps), _ = env.reset(seed=seed)
+            observation = np.array(observation, dtype=np.float32, copy=False)
+            act, act_param, all_action_parameters = agent.act(observation)
+            action = pad_action(act, act_param)
 
-        # Episode loop
-        agent.start_episode()
-        episode_return = 0
-        last_timestep = 0
-        for timestep in range(max_steps):
-            last_timestep += 1
-            (next_observation, steps), reward, terminated, truncated, info = env.step(action)
-            next_observation = np.array(next_observation, dtype=np.float32, copy=False)
-            next_act, next_act_param, next_all_action_parameters = agent.act(next_observation)
-            next_action = pad_action(next_act, next_act_param)
+            # Episode loop
+            agent.start_episode()
+            episode_return = 0
+            last_timestep = 0
+            for timestep in range(max_steps):
+                last_timestep += 1
+                (next_observation, steps), reward, terminated, truncated, info = env.step(action)
+                next_observation = np.array(next_observation, dtype=np.float32, copy=False)
+                next_act, next_act_param, next_all_action_parameters = agent.act(next_observation)
+                next_action = pad_action(next_act, next_act_param)
 
-            episode_return += reward
-            r = reward * reward_scale
+                episode_return += reward
+                r = reward * reward_scale
 
-            agent.step(observation, (act, all_action_parameters), r, next_observation, (next_act, next_all_action_parameters), terminated or truncated, steps)
-            act, act_param, all_action_parameters = next_act, next_act_param, next_all_action_parameters
-            action = next_action
-            observation = next_observation
-            if terminated or truncated:
-                break
-        agent.end_episode()
-        num_episodes += 1
-        returns.append(episode_return)
+                agent.step(observation, (act, all_action_parameters), r, next_observation, (next_act, next_all_action_parameters), terminated or truncated, steps)
+                act, act_param, all_action_parameters = next_act, next_act_param, next_all_action_parameters
+                action = next_action
+                observation = next_observation
+                if terminated or truncated:
+                    break
+            agent.end_episode()
+            returns.append(episode_return)
     env.close()
     return mean(returns)
 
-def _init_agent(env, seed):
+def _init_agent(env, seed, lr=0.001):
     pdqn_setup = {
         "observation_space": env.observation_space.spaces[0],
         "action_space": env.action_space,
-        "learning_rate_actor": 0.001,  # 0.0001
+        # "learning_rate_actor": 0.001,  # 0.0001
+        "learning_rate_actor": lr,
         "learning_rate_actor_param": 0.00001,  # 0.001
         "epsilon_steps": 1000,
         "epsilon_final": 0.01,
@@ -163,15 +169,17 @@ def _make_env(env_name: str, max_steps: int, seed: int):
 
 # config
 max_steps = 500
-episodes = 15
-optim_steps = 20
+train_episodes = 2_500 # int(10_000 / 4)
+test_episodes = 1_000
+optim_steps = 5  #20
 
 # init
 # TODO: Specify max_steps, seed
 client = Client()
 parameters = [
     RangeParameterConfig(
-        name="learning_rate", parameter_type="float", bounds=(0, 0.1), scaling="linear"
+        # name="learning_rate", parameter_type="float", bounds=(0, 0.1), scaling="linear"
+        name="learning_rate", parameter_type="float", bounds=(0, 1), scaling="linear"
     )]
 client.configure_experiment(name="cartpole-ppo", parameters=parameters)  # INFO: What to guess [A]
 client.configure_optimization(objective="mean_reward")  # INFO: What to optimise [B]
@@ -182,9 +190,13 @@ learning_rates = []
 for _ in range(optim_steps):
     trials = client.get_next_trials(max_trials=5)  # INFO: Ax makes guesses [C]
     for trial_index, parameters in trials.items():
+        # trial_index = 0
+        # parameters = {"learning_rate": 0.01}
         env = _make_env(env_name="Platform-v0", max_steps=max_steps, seed=trial_index)
-        agent = _init_agent(env, trial_index)
-        mean_reward = _get_mean_reward(episodes=episodes, agent=agent, env=env, max_steps=max_steps, seed=trial_index)  # TODO: Specify
+        agent = _init_agent(env, trial_index, lr=parameters["learning_rate"])
+        mean_reward = _get_mean_reward(
+            train_episodes=train_episodes, test_episodes=test_episodes,
+            agent=agent, env=env, max_steps=max_steps, seed=trial_index)
         mean_rewards.append(mean_reward)
         learning_rates.append(parameters["learning_rate"])
         _trial_status = client.complete_trial(  # INFO: Ax learns how the guesses went [D]
@@ -193,7 +205,7 @@ for _ in range(optim_steps):
 
 # %% output
 best = client.get_best_parameterization()
-print(best)
+print(best)  # 0.006 -> 0.22
 
 # %% Outcome
 # plt.plot(mean_rewards)
@@ -207,6 +219,7 @@ plt.savefig("mean_rewards_rl.png")
 plt.show()
 
 # %% ---- SCRIPT START ----
+quit()  # TODO REMOVE THIS LINE
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 
 def get_params_by_alg(label:str = ""):
@@ -228,7 +241,6 @@ def get_params_by_alg(label:str = ""):
     }
 # pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(get_params_by_alg().keys(), repeat=2)]
 pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_ALGS)]
-
 
 
 # %% Optimisation
