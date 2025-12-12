@@ -127,8 +127,7 @@ def main(job_config: DictConfig):
     #     print(alg_params)
     #     return -((alg_params["discrete_learning_rate"] - 0.5) ** 2)
     # return toy_func_to_optimise()
-    # return chosen_script(**job_config["parameters"], output_dir=output_dir)
-    return True
+    return chosen_script(**job_config["parameters"], output_dir=output_dir)
 
 
 if __name__ == "__main__":
