@@ -82,19 +82,42 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
         discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
         continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
         assert alg_params["discrete_learning_rate"] is not None
+        def get_on_policy_params(alg_type: str):
+            return {
+                "policy": "MlpPolicy",
+                "env": {"discrete": discreteActionMDP, "continuous": continuousActionMDP}[alg_type],
+                "verbose": 1,
+                "seed": seed,
+                "tensorboard_log": {"discrete": log_dir_discrete, "continuous": log_dir_continuous}[alg_type],
+                "learning_rate": alg_params[f"{alg_type}_learning_rate"],
+                "n_steps": alg_params["on_policy_params"]["n_steps"]
+            }
+        def get_off_policy_params(alg_type: str):
+            return {
+                "policy": "MlpPolicy",
+                "env": {"discrete": discreteActionMDP, "continuous": continuousActionMDP}[alg_type],
+                "verbose": 1,
+                "seed": seed,
+                "tensorboard_log": {"discrete": log_dir_discrete, "continuous": log_dir_continuous}[alg_type],
+                "learning_rate": alg_params[f"{alg_type}_learning_rate"]
+            }
         discreteAgent = {
-            "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
-            "DQN": DQN("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
-            "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
+            # On Policy
+            "A2C": A2C(**get_on_policy_params("discrete")),
+            "PPO": PPO(**get_on_policy_params("discrete")),
+            # Off Policy
+            "DQN": DQN(**get_off_policy_params("discrete")),
         }
         discreteAgent = discreteAgent[discreteAlg]
         discreteAgent.set_logger(sb3_logger_discrete)
         continuousAgent = {
-            "A2C": A2C("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
-            "DDPG": DDPG("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
-            "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
-            "SAC": SAC("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
-            "TD3": TD3("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
+            # On Policy
+            "A2C": A2C(**get_on_policy_params("continuous")),
+            "PPO": PPO(**get_on_policy_params("continuous")),
+            # Off Policy
+            "DDPG": DDPG(**get_off_policy_params("continuous")),
+            "SAC": SAC(**get_off_policy_params("continuous")),
+            "TD3": TD3(**get_off_policy_params("continuous")),
         }[continuousAlg]
         continuousAgent.set_logger(sb3_logger_continuous)
         discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
@@ -120,7 +143,6 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         learning_steps = math.ceil(learning_steps / ROLLOUT_LEN) * ROLLOUT_LEN
     else:
         ROLLOUT_LEN = None
-    print(f"***{seeds}***")
     mean_rewards = []
     for seed in seeds:
         mdp = _getMDP(env_name, seed)
@@ -131,11 +153,11 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         agent = _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg,
             logging_info, continuousAlg, env_name, alg_params)
         callbacks = CallbackList([DataCallback()])
-        print(learning_steps)
-        mean_rewards.append(agent.learn(learning_steps, cycles=cycles, callback=callbacks,
+        learn_output = agent.learn(learning_steps, cycles=cycles, callback=callbacks,
             progress_bar=True, evaluation_interval=evaluation_interval,
             eval_mdp=eval_mdp, eval_episodes=eval_episodes,
-            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir, update_ratio=alg_params['update_ratio']))
+            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir, update_ratio=alg_params['update_ratio'])
+        mean_rewards.append(learn_output)
     return np.mean(mean_rewards)
 
 

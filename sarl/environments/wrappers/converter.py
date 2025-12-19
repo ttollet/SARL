@@ -51,7 +51,7 @@ class HybridPolicy:
         mean_return = (timestep, np.mean(returns))
         evaluation_returns.append(mean_return)
         file_name = f"{log_dir}/eval.csv"
-        print(f"[REWARD]: Mean reward = {mean_return[1]}")  # TODO: Should not be 0 always 2025-12-19
+        print(f"[REWARD]: Mean reward = {mean_return[1]}")
         print(f"[OUTPUT]: Writing to {file_name}")
         np.savetxt(fname=file_name, X=np.array(evaluation_returns),
             header='"training_timesteps","mean_eval_episode_return"',
@@ -64,6 +64,7 @@ class HybridPolicy:
         cycles=1, callback=None, log_interval=1, tb_log_name='run',
         reset_num_timesteps=False, progress_bar=False, eval_episodes=15,
         log_dir=None, rollout_length=None, update_ratio=0.5):
+        # TODO: Handle PPO's (and other on-policy algs, like A2C) n_steps parameter to ensure no. training episodes per cycle half are as requested
         assert cycles >= 1
         if cycles > 1:
             if total_timesteps % cycles != 0:
@@ -105,6 +106,7 @@ class HybridPolicy:
             eval_bool = evaluation_interval is not None
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
                 evaluation_returns = self._evaluate(eval_mdp, evaluation_returns, cycle, eval_episodes, log_dir)
+        return np.mean([ret[1] for ret in evaluation_returns])
 
 
     def predict(self, obs):

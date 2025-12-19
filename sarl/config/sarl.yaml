@@ -5,7 +5,7 @@ environment: ???
 parameters:
   train_episodes: 300032 #250 # default: 2500; used only by temp_pdqn.py
   max_steps: 500 #250
-  learning_steps: 300032 #400000 # Multiple of 2048
+  learning_steps: 300032 #400000  # Multiple of on_policy_params.n_steps
   cycles: 128 #20 # Factor of learning_steps
   seeds:
     - 1
@@ -28,6 +28,8 @@ parameters:
     discrete_learning_rate: 0.1
     continuous_learning_rate: 0.1
     update_ratio: 0.5
+    on_policy_params:
+      n_steps: 2048
 
 verbose: info
 hydra:
