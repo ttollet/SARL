@@ -120,6 +120,7 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         learning_steps = math.ceil(learning_steps / ROLLOUT_LEN) * ROLLOUT_LEN
     else:
         ROLLOUT_LEN = None
+    print(f"***{seeds}***")
     for seed in seeds:
         mdp = _getMDP(env_name, seed)
         eval_mdp = _getMDP(env_name, seed+1)

@@ -42,7 +42,7 @@ MAX_LR = 1 #1e-3
 MIN_GAMMA = 0.9
 MAX_GAMMA = 0.9999
 # - misc:
-SEED = 42
+SEEDS = [42]
 ENVS = ["platform"]  # TODO: Set correct final ENVS
 # ["platform", "goal"]
 UPDATE_RATIO_PARAM = RangeParameterConfig(
@@ -283,11 +283,11 @@ def optimise():
             # Define the Function to Optimise.
             # Calls main() from train.py with an automated hydra config.
             GlobalHydra.instance().clear()  # critical reset
-            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEED}")):
+            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEEDS}")):
                 cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
                         f"algorithm={pair}",
                         f"environment={env}",
-                        f"parameters.seeds={SEED}",
+                        f"parameters.seeds={SEEDS}",
                         f"parameters.train_episodes={TRAIN_EPISODES}",
                         f"parameters.alg_params.discrete_learning_rate={params['discrete_learning_rate']}",
                         f"parameters.alg_params.continuous_learning_rate={params['continuous_learning_rate']}",
