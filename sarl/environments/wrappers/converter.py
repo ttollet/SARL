@@ -63,7 +63,8 @@ class HybridPolicy:
     def learn(self, total_timesteps, evaluation_interval=None, eval_mdp=None,
         cycles=1, callback=None, log_interval=1, tb_log_name='run',
         reset_num_timesteps=False, progress_bar=False, eval_episodes=15,
-        log_dir=None, rollout_length=None):
+        log_dir=None, rollout_length=None, update_ratio=0.5):
+        # TODO: Implement Update Ratio
         assert cycles >= 1
         if cycles > 1:
             if total_timesteps % cycles != 0:
@@ -79,7 +80,7 @@ class HybridPolicy:
         evaluation_returns = []
         for cycle in range(cycles-1):  # Was the '-1' necessary?
             self.cycle = cycle
-            for agent_type in self.agent.keys():
+            for agent_type in self.agent.keys():  # TODO: Implement Update Ratio
                 print(f"[{self.name}][Seed {self.agent[agent_type].seed}][Timestep {self.timestep}/{total_timesteps}][Cycle {cycle+1}/{cycles}][{agent_type}]: Learning for {timesteps_per_agent}+ timesteps...")
                 # self.timestep = self.timestep + timesteps_per_agent
                 agent = self.agent[agent_type]

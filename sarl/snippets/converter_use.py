@@ -55,27 +55,29 @@ def _getLoggingSetup(origin_log_dir, seed, env_name, write_stdout, write_csv,
 
 
 def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_info,
-    continuousAlg, env_name):
+    continuousAlg, env_name, alg_params):
     '''Return agent to train'''
     (sb3_logger_discrete, sb3_logger_continuous, log_dir, log_dir_discrete,
         log_dir_continuous) = logging_info
     if discrete_only:
-        def continuousPolicy(x): return mdp.action_parameter_space.sample()
-        discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-        discreteAgent = {
-            "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
-            "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
-        }[discreteAlg]
-        discreteAgent.set_logger(sb3_logger_discrete)
-        agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
+        assert False
+        # def continuousPolicy(x): return mdp.action_parameter_space.sample()
+        # discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
+        # discreteAgent = {
+        #     "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
+        #     "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
+        # }[discreteAlg]
+        # discreteAgent.set_logger(sb3_logger_discrete)
+        # agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
     elif continuousOnly is False:
-        def discretePolicy(x): return mdp.discrete_action_space.sample()
-        continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy, combine_continuous_actions=True)
-        continuousAgent = {
-            "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
-        }[continuousAlg]
-        agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
-        continuousAgent.set_logger(sb3_logger_continuous)
+        assert False
+        # def discretePolicy(x): return mdp.discrete_action_space.sample()
+        # continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy, combine_continuous_actions=True)
+        # continuousAgent = {
+        #     "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
+        # }[continuousAlg]
+        # agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
+        # continuousAgent.set_logger(sb3_logger_continuous)
     else:
         discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
         continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
@@ -104,7 +106,8 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
 def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
     continuousOnly=None, max_steps=None, learning_steps=0, cycles=0, seeds=[1],
     use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
-    evaluation_interval=1, eval_episodes=15):
+    evaluation_interval=1, eval_episodes=15, alg_params={}):
+    # evaluation_interval=1, eval_episodes=15):
     '''Collect data by training a specified HybridPolicy on a given environment
     via conversion.'''
     learning_steps = learning_steps * 2  # Due to converter
@@ -122,13 +125,13 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
                 write_stdout, write_csv, use_tensorboard, discreteAlg, continuousAlg,
                 cycles, learning_steps)
         agent = _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg,
-            logging_info, continuousAlg, env_name)
+            logging_info, continuousAlg, env_name, alg_params)
         callbacks = CallbackList([DataCallback()])
         print(learning_steps)
         agent.learn(learning_steps, cycles=cycles, callback=callbacks,
             progress_bar=True, evaluation_interval=evaluation_interval,
             eval_mdp=eval_mdp, eval_episodes=eval_episodes,
-            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir)
+            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir, update_ratio=alg_params['update_ratio'])
     return True
 
 
