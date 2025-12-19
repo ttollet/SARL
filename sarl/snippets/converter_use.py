@@ -81,19 +81,20 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
     else:
         discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
         continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
+        assert alg_params["discrete_learning_rate"] is not None
         discreteAgent = {
-            "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
-            "DQN": DQN("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
-            "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete),
+            "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
+            "DQN": DQN("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
+            "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_discrete, learning_rate=alg_params["discrete_learning_rate"]),
         }
         discreteAgent = discreteAgent[discreteAlg]
         discreteAgent.set_logger(sb3_logger_discrete)
         continuousAgent = {
-            "A2C": A2C("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
-            "DDPG": DDPG("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
-            "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
-            "SAC": SAC("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
-            "TD3": TD3("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous),
+            "A2C": A2C("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
+            "DDPG": DDPG("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
+            "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
+            "SAC": SAC("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
+            "TD3": TD3("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir_continuous, learning_rate=alg_params["continuous_learning_rate"]),
         }[continuousAlg]
         continuousAgent.set_logger(sb3_logger_continuous)
         discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
@@ -103,6 +104,7 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
     return agent
 
 
+# TODO: [1]
 def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
     continuousOnly=None, max_steps=None, learning_steps=0, cycles=0, seeds=[1],
     use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
@@ -138,8 +140,9 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
 # Functions for train.py
 # TODO: Reduce duplication - Only pass runConverter to train.py, and have them call it correctly
 # TODO: Implement train_episodes
-def ppo_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
-    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
+def ppo_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir, alg_params):
+    # TODO: Repeat for other scripts
+    runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir, alg_params=alg_params)
 def a2c_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
     runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir)
 def dqn_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir):
