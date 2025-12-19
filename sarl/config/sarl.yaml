@@ -25,9 +25,9 @@ parameters:
     # - 15
   eval_episodes: 250
   alg_params:
-    discrete_learning_rate: null
-    continuous_learning_rate: null
-    update_ratio: null
+    discrete_learning_rate: 0.1
+    continuous_learning_rate: 0.1
+    update_ratio: 0.5
 
 verbose: info
 hydra:

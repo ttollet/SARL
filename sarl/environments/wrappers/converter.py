@@ -51,7 +51,7 @@ class HybridPolicy:
         mean_return = (timestep, np.mean(returns))
         evaluation_returns.append(mean_return)
         file_name = f"{log_dir}/eval.csv"
-        print(f"[REWARD]: Mean reward = {mean_return[1]}")
+        print(f"[REWARD]: Mean reward = {mean_return[1]}")  # TODO: Should not be 0 always 2025-12-19
         print(f"[OUTPUT]: Writing to {file_name}")
         np.savetxt(fname=file_name, X=np.array(evaluation_returns),
             header='"training_timesteps","mean_eval_episode_return"',
@@ -64,7 +64,6 @@ class HybridPolicy:
         cycles=1, callback=None, log_interval=1, tb_log_name='run',
         reset_num_timesteps=False, progress_bar=False, eval_episodes=15,
         log_dir=None, rollout_length=None, update_ratio=0.5):
-        # TODO: Implement Update Ratio
         assert cycles >= 1
         if cycles > 1:
             if total_timesteps % cycles != 0:
@@ -72,7 +71,8 @@ class HybridPolicy:
         timesteps_per_agent = int(total_timesteps / cycles / len(self.agent.keys()))
         if rollout_length:
             timesteps_per_agent = timesteps_per_agent // rollout_length * rollout_length
-        timesteps_per_cycle = timesteps_per_agent * 2
+        # TODO: Remove line
+        # timesteps_per_cycle = timesteps_per_agent * 2
         self.timestep = 0
         for agent_type in self.agent.keys():
             self.agent[agent_type].agent_type = agent_type
@@ -80,7 +80,14 @@ class HybridPolicy:
         evaluation_returns = []
         for cycle in range(cycles-1):  # Was the '-1' necessary?
             self.cycle = cycle
-            for agent_type in self.agent.keys():  # TODO: Implement Update Ratio
+            for agent_type in self.agent.keys():
+                ratioed_timesteps = 0
+                if agent_type == "discrete":
+                    ratioed_timesteps = int(update_ratio * timesteps_per_agent)
+                elif agent_type == "continuous":
+                    ratioed_timesteps = int((1-update_ratio) * timesteps_per_agent)
+                else:
+                    raise(NotImplementedError)
                 print(f"[{self.name}][Seed {self.agent[agent_type].seed}][Timestep {self.timestep}/{total_timesteps}][Cycle {cycle+1}/{cycles}][{agent_type}]: Learning for {timesteps_per_agent}+ timesteps...")
                 # self.timestep = self.timestep + timesteps_per_agent
                 agent = self.agent[agent_type]
@@ -89,7 +96,7 @@ class HybridPolicy:
                         tb_log_name_for_component_agents = (tb_log_name+"_"+agent_type)
                         if callback is not None:
                             callback = CallbackList([callback])
-                        self.agent[agent_type].learn(timesteps_per_agent,
+                        self.agent[agent_type].learn(ratioed_timesteps,
                             callback, log_interval,
                             tb_log_name_for_component_agents,
                             reset_num_timesteps, progress_bar)

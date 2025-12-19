@@ -35,7 +35,7 @@ HYDRA_CONFIG_PATH = "../../config"
 CPU_CORES_PER_TASK = 4
 MAX_TRIALS = 40  # Big effect on duration
 PARALLEL_LIMIT = 2 # 40
-TRAIN_EPISODES = int(1000000 / 10)
+TRAIN_EPISODES = 100 # 1000000
 # - common bounds
 MIN_LR = 0 #1e-6
 MAX_LR = 1 #1e-3
@@ -47,7 +47,8 @@ ENVS = ["platform"]  # TODO: Set correct final ENVS
 # ["platform", "goal"]
 UPDATE_RATIO_PARAM = RangeParameterConfig(
     name="update_ratio",
-    bounds=(0.1, 0.9),
+    bounds=(0.1, 0.4),  # TODO: Go back to original
+    # bounds=(0.1, 0.9),  # Original
     parameter_type="float",
     scaling="linear"
 )
