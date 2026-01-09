@@ -6,6 +6,7 @@
 
 # %% Setup
 # Imports
+import os
 from profile import run
 import time
 from itertools import product
@@ -58,6 +59,7 @@ CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # TODO: REMOVE THIS LINE
 # quit()
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
+width = os.get_terminal_size().columns
 
 update_ratio_param = RangeParameterConfig(
     name="update_ratio",
@@ -156,6 +158,7 @@ def optimise():
             jobs = []
             global submitted_jobs
             submitted_jobs = 0
+            results = []
             while submitted_jobs < MAX_TRIALS or jobs:
                 def run_trials():
                     global submitted_jobs
@@ -171,10 +174,11 @@ def optimise():
                     for job, trial_index in jobs[:]:  # INFO: Ax learns how any previous guesses went [D]
                         # Monitor for completed jobs
                         if job.done() or type(job) in [LocalJob, DebugJob]:
-                            results = job.result()
-
-                            print(results)  # TODO: Check working well
+                            result = job.result()
+                            print(f"\n[JOB RESULT]: {result}")  # TODO: Check working well
+                            print("-" * width)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=results)
+                            results.append(results)
                             _ = jobs.remove((job, trial_index))
                         # WARN: Reintroduce sleep() for Slurm
                         # time.sleep(1)
@@ -184,10 +188,17 @@ def optimise():
                 # time.sleep(30)
             best = client.get_best_parameterization()  # TODO: Save best parameterisations & corresponding mean rewards
             # best_param, best_mean_reward = 0, 0
-            return best
-        outcome = run_parallel_exps()
-        print(f"\n[RESULT] {outcome[0]} results in {outcome[1]} observed on trial {outcome[2]}")
+            return {"best": best, "results": results}
+        outcome = run_parallel_exps()  # TODO: 2025-12-19 Query the job list to help visualise (also look online for best practices)
+        print(f"\n[RESULT] {outcome['best'][0]} results in {outcome['best'][1]} observed on trial {outcome['best'][2]}")
+        print("-" * width)
 
         def visualise():  # TODO: Save visualisations
-            pass
+            return
+            sorted_values = sorted(zip(learning_rates, mean_rewards))
+            sorted_lr, sorted_mean_rewards = zip(*sorted_values)
+            plt.plot(sorted_lr, sorted_mean_rewards)
+            plt.xlabel("Learning Rate")
+            plt.ylabel("Mean Reward")
+            plt.savefig("mean_rewards_rl.png")
 optimise()
