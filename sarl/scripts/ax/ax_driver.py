@@ -34,14 +34,21 @@ SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
 CPU_CORES_PER_TASK = 4
-MAX_TRIALS = 2 # 40  # Big effect on duration
-PARALLEL_LIMIT = 2 # 40
-TRAIN_EPISODES = 2 # 1000000
-LEARNING_STEPS = 10 # per episode  #400000  # Multiple of on_policy_params.n_steps
-CYCLES = 2 # 128
-# - on-policy algs
+# ---[Toy settings]---
+MAX_TRIALS = 2 # Big effect on duration
+PARALLEL_LIMIT = 2
+TRAIN_EPISODES = 2
+LEARNING_STEPS = 10 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 2
+# ---[Proper settings]---
+# MAX_TRIALS = 40  # Big effect on duration
+# PARALLEL_LIMIT = 40
+# TRAIN_EPISODES = 1000000
+# LEARNING_STEPS = 400000  # Multiple of on_policy_params.n_steps
+# CYCLES = 128
+# ---[on-policy algs]---
 ON_POLICY_PARAMS = {"n_steps": 100}
-# - common bounds
+# ---[common bounds]---
 BOUNDS_LR = (1e-6, 1e-3)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # - misc:
@@ -177,7 +184,7 @@ def optimise():
                             result = job.result()
                             print(f"\n[JOB RESULT]: {result}")  # TODO: Check working well
                             print("-" * width)
-                            _ = client.complete_trial(trial_index=trial_index, raw_data=results)
+                            _ = client.complete_trial(trial_index=trial_index, raw_data=result)
                             results.append(results)
                             _ = jobs.remove((job, trial_index))
                         # WARN: Reintroduce sleep() for Slurm
