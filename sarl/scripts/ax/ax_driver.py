@@ -7,8 +7,10 @@
 # %% Setup
 # Imports
 import os
+from pathlib import Path
 from profile import run
 import time
+from datetime import datetime
 from itertools import product
 import warnings
 from statistics import mean
@@ -29,23 +31,25 @@ warnings.filterwarnings("ignore")  # TODO: Ensure works
 
 # Constants
 # - set every time:
+# ROOT_STR = "./sarl/scripts/ax"
+ROOT_STR = "."
 LOCAL_DEBUG_MODE = True  # TODO: Set to True for local debugging
 SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
 CPU_CORES_PER_TASK = 4
 # ---[Toy settings]---
-MAX_TRIALS = 2 # Big effect on duration
+MAX_TRIALS = 100 # Big effect on duration
 PARALLEL_LIMIT = 2
-TRAIN_EPISODES = 2
-LEARNING_STEPS = 10 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 2
+TRAIN_EPISODES = 400_000  # WARN: Not used for converter
+LEARNING_STEPS = 400_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 16
 # ---[Proper settings]---
 # MAX_TRIALS = 40  # Big effect on duration
-# PARALLEL_LIMIT = 40
-# TRAIN_EPISODES = 1000000
-# LEARNING_STEPS = 400000  # Multiple of on_policy_params.n_steps
-# CYCLES = 128
+# PARALLEL_LIMIT = 2
+# TRAIN_EPISODES = 100000  # WARN: Not used for converter
+# LEARNING_STEPS = 40000 # 400000  # Multiple of on_policy_params.n_steps
+# CYCLES = 4 # 64
 # ---[on-policy algs]---
 ON_POLICY_PARAMS = {"n_steps": 100}
 # ---[common bounds]---
@@ -65,6 +69,7 @@ CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 ## %% ---- SCRIPT START ----
 # TODO: REMOVE THIS LINE
 # quit()
+yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 width = os.get_terminal_size().columns
 
@@ -143,12 +148,15 @@ def optimise():
                 mean_reward = main(cfg)  # TODO: [1] main() returns mean_reward
             return {"mean_reward": mean_reward}#, "std_reward": std_reward}
 
-        # This demonstrates the objective_function works
-        # def toy_func():
-        #     params = {"learning_rate": 0.5}
-        #     print(objective_function(params))
-        #     return True
-        # toy_func()
+        def save_client(client, wip=False):
+            Path(ROOT_STR).mkdir(parents=True, exist_ok=True)
+            if wip:
+                df = client.summarize()
+                df.to_csv(f"{ROOT_STR}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
+            else:
+                client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
+                client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.json")
+            return True
 
         def run_parallel_exps():
             # Run the Experiment
@@ -165,7 +173,7 @@ def optimise():
             jobs = []
             global submitted_jobs
             submitted_jobs = 0
-            results = []
+            # results = []
             while submitted_jobs < MAX_TRIALS or jobs:
                 def run_trials():
                     global submitted_jobs
@@ -173,7 +181,7 @@ def optimise():
                         min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
                     )
                     for trial_index, parameters in trial_index_to_param.items():
-                        job = executor.submit(objective_function, parameters)
+                        job = executor.submit(objective_function, parameters)  # TODO: Store job ID and params
                         submitted_jobs += 1
                         jobs.append((job, trial_index))
                         time.sleep(1)
@@ -182,10 +190,12 @@ def optimise():
                         # Monitor for completed jobs
                         if job.done() or type(job) in [LocalJob, DebugJob]:
                             result = job.result()
+                            # mean_reward = result['mean_reward']
                             print(f"\n[JOB RESULT]: {result}")  # TODO: Check working well
                             print("-" * width)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=result)
-                            results.append(results)
+                            save_client(client, wip=True)
+                            # results.append((mean_reward, hyperparameters))
                             _ = jobs.remove((job, trial_index))
                         # WARN: Reintroduce sleep() for Slurm
                         # time.sleep(1)
@@ -194,8 +204,9 @@ def optimise():
                 # WARN: Reintroduce sleep() for Slurm
                 # time.sleep(30)
             best = client.get_best_parameterization()  # TODO: Save best parameterisations & corresponding mean rewards
+            save_client(client)
             # best_param, best_mean_reward = 0, 0
-            return {"best": best, "results": results}
+            return {"best": best}
         outcome = run_parallel_exps()  # TODO: 2025-12-19 Query the job list to help visualise (also look online for best practices)
         print(f"\n[RESULT] {outcome['best'][0]} results in {outcome['best'][1]} observed on trial {outcome['best'][2]}")
         print("-" * width)

@@ -79,6 +79,7 @@ class HybridPolicy:
             self.agent[agent_type].agent_type = agent_type
             self.agent[agent_type].parent = self
         evaluation_returns = []
+        final_mean_return = None
         for cycle in range(cycles-1):  # Was the '-1' necessary?
             self.cycle = cycle
             for agent_type in self.agent.keys():
@@ -106,7 +107,9 @@ class HybridPolicy:
             eval_bool = evaluation_interval is not None
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
                 evaluation_returns = self._evaluate(eval_mdp, evaluation_returns, cycle, eval_episodes, log_dir)
-        return np.mean([ret[1] for ret in evaluation_returns])
+                final_mean_return = evaluation_returns[-1]
+        return final_mean_return
+        # return np.mean([ret[1] for ret in evaluation_returns])  WARN: Means are across all cycles instead of final cycle
 
 
     def predict(self, obs):
