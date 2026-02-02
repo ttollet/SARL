@@ -57,7 +57,7 @@ class HybridPolicy:
             header='"training_timesteps","mean_eval_episode_return"',
             delimiter=',', fmt="%1.3f"
         )
-        return evaluation_returns
+        return evaluation_returns  # List of tuples (training_timesteps, mean_eval_episode_return)
 
 
     def learn(self, total_timesteps, evaluation_interval=None, eval_mdp=None,
@@ -107,9 +107,9 @@ class HybridPolicy:
             eval_bool = evaluation_interval is not None
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
                 evaluation_returns = self._evaluate(eval_mdp, evaluation_returns, cycle, eval_episodes, log_dir)
-                final_mean_return = evaluation_returns[-1]
-        return final_mean_return
-        # return np.mean([ret[1] for ret in evaluation_returns])  WARN: Means are across all cycles instead of final cycle
+                final_mean_return = evaluation_returns[-1]  # List of tuples (training_timesteps, mean_eval_episode_return)
+        return final_mean_return[1]  # INFO: Fix was to report the mean return instead of the training timesteps by accident
+        # return np.mean([ret[1] for ret in evaluation_returns])  #  WARN: Means are across all cycles instead of final cycle
 
 
     def predict(self, obs):
