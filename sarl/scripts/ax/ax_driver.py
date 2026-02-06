@@ -5,6 +5,12 @@
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
 
 # %% Setup
+# TODO: Plot different cycles on goal
+# TODO: Visualise the agent performance on baseline vs our pairs
+# INFO: Consider that neural network size may have very large effect on performance
+# TODO: 1. Results for PPO-PPO on Platform, then Goal
+# TODO: 2. Visualisations of agent with suboptimal unoptimised policies for intuition
+# TODO: Add duration to CSV
 # Imports
 import os
 from pathlib import Path
