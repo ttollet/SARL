@@ -12,7 +12,6 @@
 # TODO: 2. Visualisations of agent with suboptimal unoptimised policies for intuition
 # TODO: Add duration to CSV
 # Imports
-from enum import CONTINUOUS
 import os
 from pathlib import Path
 from pickletools import dis
@@ -55,13 +54,13 @@ CYCLES = 8
 # ---[Proper settings]---
 # MAX_TRIALS = 100 # Big effect on duration
 # PARALLEL_LIMIT = 1
-# TRAIN_EPISODES = 400_000  # WARN: Not used for converter
-# LEARNING_STEPS = 400_000 # per episode  # Multiple of on_policy_params.n_steps
+# TRAIN_EPISODES = 250_000  # WARN: Not used for converter
+# LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
 # CYCLES = 16
 # ---[on-policy algs]---
 ON_POLICY_PARAMS = {"n_steps": 100}
 # ---[common bounds]---
-BOUNDS_LR = (1e-6, 1e-3)
+BOUNDS_LR = (1e-6, 1e-2)  #(1e-6, 1e-3)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # - misc:
 SEEDS = [42]
@@ -79,7 +78,7 @@ FIXED_PARAMS = {  # INFO: Temp for collaboration purposes
     "continuous_learning_rate": 4.0e-4,
     "update_ratio": 0.05,
 }
-USE_FIXED_PARAMS = True
+USE_FIXED_PARAMS = False
 
 ## %% ---- SCRIPT START ----
 # TODO: REMOVE THIS LINE
@@ -92,7 +91,7 @@ update_ratio_param = RangeParameterConfig(
     name="update_ratio",
     bounds=BOUNDS_UPDATE_RATIO,
     parameter_type="float",
-    scaling="linear"
+    scaling="linear"  # Linear makes sense given smaller scale
 )
 
 def get_params_by_alg(label:str = ""):
@@ -101,7 +100,7 @@ def get_params_by_alg(label:str = ""):
             name=f"{label}_learning_rate",
             bounds=(BOUNDS_LR[0], BOUNDS_LR[1]),
             parameter_type="float",
-            scaling="linear"
+            scaling="log"  #"linear"  # Use log for large scale
         )
     ]
     return {
