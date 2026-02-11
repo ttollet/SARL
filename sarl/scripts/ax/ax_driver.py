@@ -12,8 +12,10 @@
 # TODO: 2. Visualisations of agent with suboptimal unoptimised policies for intuition
 # TODO: Add duration to CSV
 # Imports
+from enum import CONTINUOUS
 import os
 from pathlib import Path
+from pickletools import dis
 from profile import run
 import time
 from datetime import datetime
@@ -49,7 +51,7 @@ MAX_TRIALS = 100 # Big effect on duration
 PARALLEL_LIMIT = 1
 TRAIN_EPISODES = 40_000  # WARN: Not used for converter
 LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 4
+CYCLES = 8
 # ---[Proper settings]---
 # MAX_TRIALS = 100 # Big effect on duration
 # PARALLEL_LIMIT = 1
@@ -71,6 +73,13 @@ DISCRETE_ALGS = ["ppo"]
 CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
+
+FIXED_PARAMS = {  # INFO: Temp for collaboration purposes
+    "discrete_learning_rate": 1.0e-2,
+    "continuous_learning_rate": 4.0e-4,
+    "update_ratio": 0.05,
+}
+USE_FIXED_PARAMS = True
 
 ## %% ---- SCRIPT START ----
 # TODO: REMOVE THIS LINE
@@ -137,6 +146,15 @@ def optimise():
             # Calls main() from train.py with an automated hydra config.
             GlobalHydra.instance().clear()  # critical reset
             with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEEDS}")):
+                if USE_FIXED_PARAMS:
+                    print("[DEBUG] Using fixed parameters!")
+                    discrete_lr = FIXED_PARAMS["discrete_learning_rate"]
+                    continuous_lr = FIXED_PARAMS["continuous_learning_rate"]
+                    update_ratio = FIXED_PARAMS["update_ratio"]
+                else:
+                    discrete_lr = params['discrete_learning_rate']
+                    continuous_lr = params['continuous_learning_rate']
+                    update_ratio = params['update_ratio']
                 cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
                         f"algorithm={pair}",
                         f"environment={env}",
@@ -144,11 +162,10 @@ def optimise():
                         f"parameters.train_episodes={TRAIN_EPISODES}",
                         f"parameters.learning_steps={LEARNING_STEPS}",
                         f"parameters.cycles={CYCLES}",
-                        f"parameters.alg_params.discrete_learning_rate={params['discrete_learning_rate']}",
-                        f"parameters.alg_params.continuous_learning_rate={params['continuous_learning_rate']}",
-                        f"parameters.alg_params.update_ratio={params['update_ratio']}",
+                        f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
+                        f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
+                        f"parameters.alg_params.update_ratio={update_ratio}",
                         f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
                 mean_reward = main(cfg)  # TODO: [1] main() returns mean_reward
