@@ -46,17 +46,17 @@ HYDRA_CONFIG_PATH = "../../config"
 # - computation:
 CPU_CORES_PER_TASK = 4
 # ---[Toy settings]---
-MAX_TRIALS = 100 # Big effect on duration
-PARALLEL_LIMIT = 1
-TRAIN_EPISODES = 40_000  # WARN: Not used for converter
-LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 8
-# ---[Proper settings]---
 # MAX_TRIALS = 100 # Big effect on duration
 # PARALLEL_LIMIT = 1
-# TRAIN_EPISODES = 250_000  # WARN: Not used for converter
-# LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
-# CYCLES = 16
+# TRAIN_EPISODES = 40_000  # WARN: Not used for converter
+# LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
+# CYCLES = 8
+# ---[Proper settings]---
+MAX_TRIALS = 1000 # Big effect on duration
+PARALLEL_LIMIT = 1
+TRAIN_EPISODES = 250_000  # WARN: Not used for converter
+LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 16
 # ---[on-policy algs]---
 ON_POLICY_PARAMS = {"n_steps": 100}
 # ---[common bounds]---
@@ -64,7 +64,7 @@ BOUNDS_LR = (1e-6, 1e-2)  #(1e-6, 1e-3)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # - misc:
 SEEDS = [42]
-ENVS = ["platform"]  # TODO: Set correct final ENVS
+ENVS = ["goal"]  # TODO: Set correct final ENVS
 # ["platform", "goal"]
 
 # TODO: Set correct final *_ALGS
@@ -74,6 +74,7 @@ CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
 FIXED_PARAMS = {  # INFO: Temp for collaboration purposes
+    # TODO: 2026-02-13 Test 3x3 grid of low/med/high learning rates
     "discrete_learning_rate": 1.0e-2,
     "continuous_learning_rate": 4.0e-4,
     "update_ratio": 0.05,
