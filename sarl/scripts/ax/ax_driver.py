@@ -34,13 +34,13 @@ from ax.api.configs import ChoiceParameterConfig, RangeParameterConfig
 
 from sarl.train import main
 
-warnings.filterwarnings("ignore")  # TODO: Ensure works
+warnings.filterwarnings("ignore")
 
 # Constants
 # - set every time:
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
-LOCAL_DEBUG_MODE = True  # TODO: Set to True for local debugging
+LOCAL_DEBUG_MODE = True  # TODO: Disable for production
 SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 # - computation:
@@ -69,7 +69,7 @@ ENVS = ["goal"]  # TODO: Set correct final ENVS
 
 # TODO: Set correct final *_ALGS
 DISCRETE_ALGS = ["ppo"]
-CONTINUOUS_ALGS = ["ppo"]  # TODO: Vary discrete alg choice first
+CONTINUOUS_ALGS = ["ppo"]
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
@@ -82,8 +82,6 @@ FIXED_PARAMS = {  # INFO: Temp for collaboration purposes
 USE_FIXED_PARAMS = False
 
 ## %% ---- SCRIPT START ----
-# TODO: REMOVE THIS LINE
-# quit()
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 width = os.get_terminal_size().columns
@@ -168,7 +166,7 @@ def optimise():
                         f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
-                mean_reward = main(cfg)  # TODO: [1] main() returns mean_reward
+                mean_reward = main(cfg)
             return {"mean_reward": mean_reward}#, "std_reward": std_reward}
 
         def save_client(client, wip=False):
