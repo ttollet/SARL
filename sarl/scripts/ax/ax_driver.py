@@ -5,17 +5,16 @@
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
 
 # %% Setup
-# TODO: Plot different cycles on goal
 # TODO: Visualise the agent performance on baseline vs our pairs
 # INFO: Consider that neural network size may have very large effect on performance
-# TODO: 1. Results for PPO-PPO on Platform, then Goal
-# TODO: 2. Visualisations of agent with suboptimal unoptimised policies for intuition
 # TODO: Add duration to CSV
+# TODO: 2026-02-13 Test 3x3 grid of low/med/high learning rates
 # Imports
 import os
 from pathlib import Path
 from pickletools import dis
 from profile import run
+from sqlite3.dbapi2 import paramstyle
 import time
 from datetime import datetime
 from itertools import product
@@ -36,50 +35,51 @@ from sarl.train import main
 
 warnings.filterwarnings("ignore")
 
-# Constants
-# - set every time:
+# ===Constants===
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
 LOCAL_DEBUG_MODE = True  # TODO: Disable for production
+CPU_CORES_PER_TASK = 4
 SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
-# - computation:
-CPU_CORES_PER_TASK = 4
-# ---[Toy settings]---
-# MAX_TRIALS = 100 # Big effect on duration
-# PARALLEL_LIMIT = 1
-# TRAIN_EPISODES = 40_000  # WARN: Not used for converter
-# LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
-# CYCLES = 8
-# ---[Proper settings]---
-MAX_TRIALS = 1000 # Big effect on duration
-PARALLEL_LIMIT = 1
-TRAIN_EPISODES = 250_000  # WARN: Not used for converter
-LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 16
+TRAIN_EPISODES = 40_000  # WARN: Not used for converter, here for ease
 # ---[on-policy algs]---
-ON_POLICY_PARAMS = {"n_steps": 100}
+ON_POLICY_PARAMS = {"n_steps": 100}  # TODO: Vary this parameter
 # ---[common bounds]---
-BOUNDS_LR = (1e-6, 1e-2)  #(1e-6, 1e-3)
+BOUNDS_LR = (1e-6, 1e-2)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
-# - misc:
-SEEDS = [42]
-ENVS = ["goal"]  # TODO: Set correct final ENVS
-# ["platform", "goal"]
 
-# TODO: Set correct final *_ALGS
-DISCRETE_ALGS = ["ppo"]
-CONTINUOUS_ALGS = ["ppo"]
+# ---[Toy settings]---
+MAX_TRIALS = 1 # Big effect on duration
+PARALLEL_LIMIT = 1
+LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 8
+SEEDS = [_ for _ in range(1, 3)]
+ENVS = ["platform"]
+DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
+CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
+# ---[Proper settings]---
+# MAX_TRIALS = 1000 # Big effect on duration
+# PARALLEL_LIMIT = 1
+# LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
+# CYCLES = 16
+# SEEDS = [_ for _ in range(1, 51)]
+# ENVS = ["platform", "goal"]
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
-FIXED_PARAMS = {  # INFO: Temp for collaboration purposes
-    # TODO: 2026-02-13 Test 3x3 grid of low/med/high learning rates
-    "discrete_learning_rate": 1.0e-2,
-    "continuous_learning_rate": 4.0e-4,
-    "update_ratio": 0.05,
-}
-USE_FIXED_PARAMS = False
+_LOW = 1.0e-4
+_HIGH = 0.2
+_med =  np.mean([_LOW, _HIGH])
+FIXED_PARAMS = [  # TODO: Suppress multiple trials in case of fixed params
+    # "discrete_learning_rate":
+    [_LOW, _med, _HIGH, _LOW, _med, _HIGH, _LOW, _med, _HIGH],
+    # "continuous_learning_rate":
+    [_LOW, _LOW, _LOW, _med, _med, _med, _HIGH, _HIGH, _HIGH],
+    # "update_ratio":
+    [0.5 for _ in range(9)]
+]
+USE_FIXED_PARAMS = True
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -117,7 +117,7 @@ pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_AL
 # %% Optimisation
 # INFO: From source code of ax: the aqcuisition function used is qLogNoisyExpectedImprovement in BoTorch.
 # See line 29 of https://github.com/facebook/Ax/blob/main/ax/generators/torch/botorch_modular/utils.py
-def optimise():
+def optimise(param_set=None, max_trials=1):
     for pair, env in list(product(pairs, ENVS)):
         def get_client():
             # Setup Experiment via Ax
@@ -144,11 +144,9 @@ def optimise():
             # Calls main() from train.py with an automated hydra config.
             GlobalHydra.instance().clear()  # critical reset
             with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEEDS}")):
-                if USE_FIXED_PARAMS:
+                if param_set is not None:
                     print("[DEBUG] Using fixed parameters!")
-                    discrete_lr = FIXED_PARAMS["discrete_learning_rate"]
-                    continuous_lr = FIXED_PARAMS["continuous_learning_rate"]
-                    update_ratio = FIXED_PARAMS["update_ratio"]
+                    discrete_lr, continuous_lr, update_ratio = param_set
                 else:
                     discrete_lr = params['discrete_learning_rate']
                     continuous_lr = params['continuous_learning_rate']
@@ -175,8 +173,13 @@ def optimise():
                 df = client.summarize()
                 df.to_csv(f"{ROOT_STR}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
             else:
-                client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
-                client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.json")
+                if param_set is not None:
+                    param_set_str = "_".join([str(param) for param in param_set])
+                    client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.csv", index=False)
+                    client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.json")
+                else:
+                    client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
+                    client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.json")
             return True
 
         def run_parallel_exps():
@@ -195,11 +198,11 @@ def optimise():
             global submitted_jobs
             submitted_jobs = 0
             # results = []
-            while submitted_jobs < MAX_TRIALS or jobs:
+            while submitted_jobs < max_trials or jobs:
                 def run_trials():
                     global submitted_jobs
                     trial_index_to_param = client.get_next_trials(  # INFO: Ax makes guesses [C]
-                        min(PARALLEL_LIMIT - len(jobs), MAX_TRIALS - submitted_jobs)
+                        min(PARALLEL_LIMIT - len(jobs), max_trials - submitted_jobs)
                     )
                     for trial_index, parameters in trial_index_to_param.items():
                         job = executor.submit(objective_function, parameters)  # TODO: Store job ID and params
@@ -240,4 +243,10 @@ def optimise():
             plt.xlabel("Learning Rate")
             plt.ylabel("Mean Reward")
             plt.savefig("mean_rewards_rl.png")
-optimise()
+if USE_FIXED_PARAMS:
+    for i in range(len(FIXED_PARAMS[0])):
+        param_set = [arr[i] for arr in FIXED_PARAMS]
+        print(f"[INFO] Optimising with fixed parameters: {param_set}")
+        optimise(param_set)
+else:
+    optimise(max_trials=MAX_TRIALS)

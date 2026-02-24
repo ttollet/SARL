@@ -127,12 +127,10 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
     return agent
 
 
-# TODO: [1]
 def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
     continuousOnly=None, max_steps=None, learning_steps=0, cycles=0, seeds=[1],
     use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
     evaluation_interval=1, eval_episodes=15, alg_params={}):
-    # evaluation_interval=1, eval_episodes=15):
     '''Collect data by training a specified HybridPolicy on a given environment
     via conversion.'''
     learning_steps = learning_steps * 2  # Due to converter
@@ -165,7 +163,6 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
 # TODO: Reduce duplication - Only pass runConverter to train.py, and have them call it correctly
 # TODO: Implement train_episodes
 def ppo_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir, alg_params):
-    # TODO: Repeat for other scripts
     return runConverter(eval_episodes=eval_episodes, discreteAlg="PPO", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir, alg_params=alg_params)
 def a2c_ppo_platform(max_steps, train_episodes, learning_steps, cycles, seeds, eval_episodes, output_dir, alg_params):
     return runConverter(eval_episodes=eval_episodes, discreteAlg="A2C", continuousAlg="PPO", env_name="Platform-v0", max_steps=max_steps, learning_steps=learning_steps, cycles=cycles, seeds=seeds, use_tensorboard=False, write_csv=True, origin_log_dir=output_dir, alg_params=alg_params)
