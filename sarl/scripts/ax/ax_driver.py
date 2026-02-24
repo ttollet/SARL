@@ -4,9 +4,9 @@
 # - https://ax.dev/docs/0.5.0/tutorials/submitit/
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
 # 2026-02-24
-# [wip] Produce a 3x3 Grid of low-med-high to demonstrate learnable parameters (fixed update ratio)
-# [x] Avg across n seeds
-# [ ] Visualise trained agents
+# TODO [wip] Produce a 3x3 Grid of low-med-high to demonstrate learnable parameters (fixed update ratio)
+# DONE [x] Avg across n seeds
+# TODO [ ] Visualise trained agents
 
 # %% Setup
 # TODO: Visualise the agent performance on baseline vs our pairs
@@ -56,12 +56,12 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # ---[Toy settings]---
 MAX_TRIALS = 1 # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = 40_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 8
+LEARNING_STEPS = 2000#40_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 2#8
 SEEDS = [_ for _ in range(1, 3)]
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
-CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
+CONTINUOUS_ALGS = ["ppo"]  # SAC best in paper
 # ---[Proper settings]---
 # MAX_TRIALS = 1000 # Big effect on duration
 # PARALLEL_LIMIT = 1
@@ -209,6 +209,7 @@ def optimise(param_set=None, max_trials=1):
                         min(PARALLEL_LIMIT - len(jobs), max_trials - submitted_jobs)
                     )
                     for trial_index, parameters in trial_index_to_param.items():
+                        print(f"[INFO] Submitting parameters: {parameters}")
                         job = executor.submit(objective_function, parameters)  # TODO: Store job ID and params
                         submitted_jobs += 1
                         jobs.append((job, trial_index))
