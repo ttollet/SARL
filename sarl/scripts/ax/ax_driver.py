@@ -3,6 +3,10 @@
 # Based on advice from:
 # - https://ax.dev/docs/0.5.0/tutorials/submitit/
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
+# 2026-02-24
+# [wip] Produce a 3x3 Grid of low-med-high to demonstrate learnable parameters (fixed update ratio)
+# [x] Avg across n seeds
+# [ ] Visualise trained agents
 
 # %% Setup
 # TODO: Visualise the agent performance on baseline vs our pairs
