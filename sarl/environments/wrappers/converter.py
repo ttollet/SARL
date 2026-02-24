@@ -72,15 +72,13 @@ class HybridPolicy:
         timesteps_per_agent = int(total_timesteps / cycles / len(self.agent.keys()))
         if rollout_length:
             timesteps_per_agent = timesteps_per_agent // rollout_length * rollout_length
-        # TODO: Remove line
-        # timesteps_per_cycle = timesteps_per_agent * 2
         self.timestep = 0
         for agent_type in self.agent.keys():
             self.agent[agent_type].agent_type = agent_type
             self.agent[agent_type].parent = self
         evaluation_returns = []
         final_mean_return = None
-        for cycle in range(cycles-1):  # Was the '-1' necessary?
+        for cycle in range(cycles):
             self.cycle = cycle
             for agent_type in self.agent.keys():
                 ratioed_timesteps = 0
