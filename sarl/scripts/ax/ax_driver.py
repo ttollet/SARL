@@ -56,12 +56,12 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # ---[Toy settings]---
 MAX_TRIALS = 1 # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = 2000#40_000 # per episode  # Multiple of on_policy_params.n_steps
+LEARNING_STEPS = 1000#40_000 # per episode  # Multiple of on_policy_params.n_steps
 CYCLES = 2#8
-SEEDS = [_ for _ in range(1, 3)]
+SEEDS = [_ for _ in range(1, 2)]
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
-CONTINUOUS_ALGS = ["ppo"]  # SAC best in paper
+CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
 # ---[Proper settings]---
 # MAX_TRIALS = 1000 # Big effect on duration
 # PARALLEL_LIMIT = 1
@@ -73,7 +73,7 @@ CONTINUOUS_ALGS = ["ppo"]  # SAC best in paper
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
 _LOW = 1.0e-4
-_HIGH = 0.2
+_HIGH = 0.01  # Too high leads to broken SAC
 _med =  np.mean([_LOW, _HIGH])
 FIXED_PARAMS = [  # TODO: Suppress multiple trials in case of fixed params
     # "discrete_learning_rate":
