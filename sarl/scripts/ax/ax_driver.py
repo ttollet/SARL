@@ -4,17 +4,18 @@
 # - https://ax.dev/docs/0.5.0/tutorials/submitit/
 # - https://ax.dev/docs/0.5.0/bayesopt/#tradeoff-between-parallelism-and-total-number-of-trials
 # 2026-02-24
-# TODO [wip] Produce a 3x3 Grid of low-med-high to demonstrate learnable parameters (fixed update ratio)
+# TODO [wip] 2026-02-13 Produce a 3x3 Grid of low-med-high to demonstrate learnable parameters (fixed update ratio)
 # DONE [x] Avg across n seeds
 # TODO [ ] Visualise trained agents
+# TODO [ ] Store best performance instead of just mean performance
 
 # %% Setup
 # TODO: Visualise the agent performance on baseline vs our pairs
 # INFO: Consider that neural network size may have very large effect on performance
 # TODO: Add duration to CSV
-# TODO: 2026-02-13 Test 3x3 grid of low/med/high learning rates
 # Imports
 import os
+import yaml
 from pathlib import Path
 from pickletools import dis
 from profile import run
@@ -42,9 +43,8 @@ warnings.filterwarnings("ignore")
 # ===Constants===
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
-LOCAL_DEBUG_MODE = True  # TODO: Disable for production
+LOCAL_DEBUG_MODE = True  # INFO: Disable for production
 CPU_CORES_PER_TASK = 4
-SUBMITIT_DIR = "submitit"
 HYDRA_CONFIG_PATH = "../../config"
 TRAIN_EPISODES = 40_000  # WARN: Not used for converter, here for ease
 # ---[on-policy algs]---
@@ -56,9 +56,9 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # ---[Toy settings]---
 MAX_TRIALS = 1 # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = 1000#40_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 2#8
-SEEDS = [_ for _ in range(1, 2)]
+LEARNING_STEPS = 80_000#1000#40_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 8#2#8
+SEEDS = [_ for _ in range(1, 16)]
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
 CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
@@ -87,6 +87,8 @@ USE_FIXED_PARAMS = True
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
+run_dir = f"{ROOT_STR}/runs/{yyyy_mm_dd_hhmm}"
+Path(run_dir).mkdir(parents=True, exist_ok=True)
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 width = os.get_terminal_size().columns
 
@@ -96,6 +98,26 @@ update_ratio_param = RangeParameterConfig(
     parameter_type="float",
     scaling="linear"  # Linear makes sense given smaller scale
 )
+
+
+def create_config(run_dir):
+    config = {
+        'run_timestamp': yyyy_mm_dd_hhmm,
+            'settings': {
+                'algorithm': DISCRETE_ALGS[0] + '-' + CONTINUOUS_ALGS[0],  # or use pairs
+                'environment': ENVS[0],
+                'seeds': SEEDS,
+                'learning_steps': LEARNING_STEPS,
+                'cycles': CYCLES,
+                'train_episodes': TRAIN_EPISODES,
+                'on_policy_n_steps': ON_POLICY_PARAMS['n_steps']
+            }
+        }
+    config_path = f"{Path(run_dir)}/config.yaml"
+    with open(config_path, 'w') as f:
+        yaml.dump(config, f)
+create_config(run_dir)
+
 
 def get_params_by_alg(label:str = ""):
     shared_params = [
@@ -136,18 +158,19 @@ def optimise(param_set=None, max_trials=1):
 
         def get_executor():
             # Setup SubmitIt
-            executor = AutoExecutor(folder=SUBMITIT_DIR, cluster=cluster)
+            # executor = AutoExecutor(folder="submitit", cluster=cluster)
+            executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
             executor.update_parameters(timeout_min=60) # Timeout of the slurm job. Not including slurm scheduling delay.
             executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
             return executor
         executor = get_executor()
 
         # def objective_function(params: dict[str, list[RangeParameterConfig]]):
-        def objective_function(params: dict[str, float]):
+        def objective_function(params: dict[str, float], trial_index=None):
             # Define the Function to Optimise.
             # Calls main() from train.py with an automated hydra config.
             GlobalHydra.instance().clear()  # critical reset
-            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"{pair.replace('-', '_')}-{env}-{SEEDS}")):
+            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{SEEDS}")):
                 if param_set is not None:
                     print("[DEBUG] Using fixed parameters!")
                     discrete_lr, continuous_lr, update_ratio = param_set
@@ -166,24 +189,27 @@ def optimise(param_set=None, max_trials=1):
                         f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
                         f"parameters.alg_params.update_ratio={update_ratio}",
                         f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+                        f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${{hydra.job.name}}"
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
                 mean_reward = main(cfg)
-            return {"mean_reward": mean_reward}#, "std_reward": std_reward}
+            return {"mean_reward": mean_reward}  # TODO:, "std_reward": std_reward}
 
         def save_client(client, wip=False):
-            Path(ROOT_STR).mkdir(parents=True, exist_ok=True)
+            # Path(ROOT_STR).mkdir(parents=True, exist_ok=True)
+            Path(run_dir).mkdir(parents=True, exist_ok=True)
             if wip:
                 df = client.summarize()
-                df.to_csv(f"{ROOT_STR}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
+                # df.to_csv(f"{ROOT_STR}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
+                df.to_csv(f"{run_dir}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
             else:
                 if param_set is not None:
                     param_set_str = "_".join([str(param) for param in param_set])
-                    client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.csv", index=False)
-                    client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.json")
+                    client.summarize().to_csv(f"{run_dir}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.csv", index=False)
+                    client.save_to_json_file(f"{run_dir}/{yyyy_mm_dd_hhmm}-client-{param_set_str}.json")
                 else:
-                    client.summarize().to_csv(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
-                    client.save_to_json_file(f"{ROOT_STR}/{yyyy_mm_dd_hhmm}-client.json")
+                    client.summarize().to_csv(f"{run_dir}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
+                    client.save_to_json_file(f"{run_dir}/{yyyy_mm_dd_hhmm}-client.json")
             return True
 
         def run_parallel_exps():
@@ -210,7 +236,7 @@ def optimise(param_set=None, max_trials=1):
                     )
                     for trial_index, parameters in trial_index_to_param.items():
                         print(f"[INFO] Submitting parameters: {parameters}")
-                        job = executor.submit(objective_function, parameters)  # TODO: Store job ID and params
+                        job = executor.submit(objective_function, parameters, trial_index)  # TODO: Store job ID and params
                         submitted_jobs += 1
                         jobs.append((job, trial_index))
                         time.sleep(1)
@@ -220,7 +246,7 @@ def optimise(param_set=None, max_trials=1):
                         if job.done() or type(job) in [LocalJob, DebugJob]:
                             result = job.result()
                             # mean_reward = result['mean_reward']
-                            print(f"\n[JOB RESULT]: {result}")  # TODO: Check working well
+                            print(f"\n[JOB RESULT]: {result}")
                             print("-" * width)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=result)
                             save_client(client, wip=True)
@@ -236,18 +262,10 @@ def optimise(param_set=None, max_trials=1):
             save_client(client)
             # best_param, best_mean_reward = 0, 0
             return {"best": best}
-        outcome = run_parallel_exps()  # TODO: 2025-12-19 Query the job list to help visualise (also look online for best practices)
+        outcome = run_parallel_exps()
         print(f"\n[RESULT] {outcome['best'][0]} results in {outcome['best'][1]} observed on trial {outcome['best'][2]}")
         print("-" * width)
 
-        def visualise():  # TODO: Save visualisations
-            return
-            sorted_values = sorted(zip(learning_rates, mean_rewards))
-            sorted_lr, sorted_mean_rewards = zip(*sorted_values)
-            plt.plot(sorted_lr, sorted_mean_rewards)
-            plt.xlabel("Learning Rate")
-            plt.ylabel("Mean Reward")
-            plt.savefig("mean_rewards_rl.png")
 if USE_FIXED_PARAMS:
     for i in range(len(FIXED_PARAMS[0])):
         param_set = [arr[i] for arr in FIXED_PARAMS]
