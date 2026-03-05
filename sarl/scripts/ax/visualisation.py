@@ -9,17 +9,34 @@ import os
 # %% Configuration
 run_dir = "./runs/2026-03-04_16-19"
 csv_files = [f for f in glob.glob(f"{run_dir}/*.csv") if "wip" not in f.lower()]
-data = []
 
 # %% Debug
+# os.getcwd()
+# os.listdir(run_dir)
+# os.listdir("./runs/2026-03-04_16-19")
+csv_files
+
+# %% Debug
+f = csv_files[0]
+df_f = pd.read_csv(f)
+# df_f.head()
+print(get_params_from_filename(f))
+print(f)
 
 # %% Extract relevant data
+def get_params_from_filename(f):
+    return {key: float(v) for key, v in zip(["discrete_lr", "continuous_lr", "update_ratio"], f.split("/")[-1][:-4].split("-")[-1].split("_"))}
+
+data = []
 for f in csv_files:
     df = pd.read_csv(f)
     if len(df) > 0:
+        param_dict = get_params_from_filename(f)
+        # WARN: csv file reported parameters differs from used params in case of fixed params
+        # TODO: fix implementation of fixed params
         data.append({
-            'discrete_lr': df['discrete_learning_rate'].iloc[0],
-            'continuous_lr': df['continuous_learning_rate'].iloc[0],
+            'discrete_lr': param_dict['discrete_lr'],
+            'continuous_lr': param_dict['continuous_lr'],
             'mean_reward': df['mean_reward'].iloc[0]
         })
 df_all = pd.DataFrame(data)
