@@ -41,3 +41,10 @@ low | med | high
 xxx
 xxx
 xxx
+
+2025-03-05
+Have:
+- 9 csv files
+- Each has single value, due to fixed param implementation
+Want:
+- 3x3 grid -> creating notebook for this purpose

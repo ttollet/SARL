@@ -1,0 +1,24 @@
+run_timestamp: 2026-03-04_16-19
+settings:
+  algorithm: dqn-sac
+  cycles: 8
+  environment: platform
+  learning_steps: 80000
+  on_policy_n_steps: 100
+  seeds:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  train_episodes: 40000
