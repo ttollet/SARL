@@ -171,3 +171,4 @@ pyrightconfig.json
 sarl/scripts/ax/submitit/
 *.out
 *.err
+meeting-prep/*
