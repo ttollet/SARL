@@ -4,24 +4,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import glob
-import os
+from datetime import datetime
 
 # %% Configuration
 run_dir = "./runs/2026-03-04_16-19"
 csv_files = [f for f in glob.glob(f"{run_dir}/*.csv") if "wip" not in f.lower()]
 
-# %% Debug
-# os.getcwd()
-# os.listdir(run_dir)
-# os.listdir("./runs/2026-03-04_16-19")
-csv_files
-
-# %% Debug
-f = csv_files[0]
-df_f = pd.read_csv(f)
-# df_f.head()
-print(get_params_from_filename(f))
-print(f)
 
 # %% Extract relevant data
 def get_params_from_filename(f):
@@ -51,4 +39,6 @@ plt.title("Mean Reward: Discrete vs Continuous Learning Rate")
 plt.xlabel("Discrete Learning Rate")
 plt.ylabel("Continuous Learning Rate")
 plt.tight_layout()
+timestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M")
+plt.savefig(f"{timestamp_str}-heatmap.png")
 plt.show()
