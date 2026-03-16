@@ -56,9 +56,9 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 # ---[Toy settings]---
 MAX_TRIALS = 1 # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = 80_000#1000#40_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 8#2#8
-SEEDS = [_ for _ in range(1, 16)]
+LEARNING_STEPS = 1000#80_000 # per episode  # Multiple of on_policy_params.n_steps
+CYCLES = 2#8
+SEEDS = [_ for _ in range(1, 3)]#16)]
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
 CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
@@ -192,8 +192,8 @@ def optimise(param_set=None, max_trials=1):
                         f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${{hydra.job.name}}"
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
-                mean_reward = main(cfg)
-            return {"mean_reward": mean_reward}  # TODO:, "std_reward": std_reward}
+                mean_reward, mean_reward_se = main(cfg)
+            return {"mean_reward": (mean_reward, mean_reward_se)}  # TODO:, "std_reward": std_reward}
 
         def save_client(client, wip=False):
             # Path(ROOT_STR).mkdir(parents=True, exist_ok=True)
@@ -244,7 +244,7 @@ def optimise(param_set=None, max_trials=1):
                     for job, trial_index in jobs[:]:  # INFO: Ax learns how any previous guesses went [D]
                         # Monitor for completed jobs
                         if job.done() or type(job) in [LocalJob, DebugJob]:
-                            result = job.result()
+                            result = job.result()  # TODO: Append variance to result
                             # mean_reward = result['mean_reward']
                             print(f"\n[JOB RESULT]: {result}")
                             print("-" * width)
