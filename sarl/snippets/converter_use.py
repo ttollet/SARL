@@ -156,7 +156,9 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
             eval_mdp=eval_mdp, eval_episodes=eval_episodes,
             rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir, update_ratio=alg_params['update_ratio'])
         mean_rewards.append(learn_output)
-    return (np.mean(mean_rewards), np.std(mean_rewards, ddof=1))
+    mean = np.mean(mean_rewards)
+    sem = np.std(mean_rewards, ddof=1) / np.sqrt(len(mean_rewards))  # Standard Error of the Mean
+    return (mean, sem)
 
 
 # Functions for train.py
