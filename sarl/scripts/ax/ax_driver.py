@@ -27,6 +27,7 @@ import warnings
 from statistics import mean
 
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from submitit import AutoExecutor, LocalJob, DebugJob
 from hydra import initialize, compose
@@ -72,18 +73,21 @@ CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
-_LOW = 1.0e-4
-_HIGH = 0.01  # Too high leads to broken SAC
-_med =  np.mean([_LOW, _HIGH])
-FIXED_PARAMS = [  # TODO: Suppress multiple trials in case of fixed params
-    # "discrete_learning_rate":
-    [_LOW, _med, _HIGH, _LOW, _med, _HIGH, _LOW, _med, _HIGH],
-    # "continuous_learning_rate":
-    [_LOW, _LOW, _LOW, _med, _med, _med, _HIGH, _HIGH, _HIGH],
-    # "update_ratio":
-    [0.5 for _ in range(9)]
+# 3×3 grid: use Ax's attach_trial for manual parameterizations
+GRID_PARAMS = [
+    {"discrete_lr": 1e-4,   "continuous_lr": 1e-4,   "update_ratio": 0.5},
+    {"discrete_lr": 3.16e-3,"continuous_lr": 1e-4,   "update_ratio": 0.5},
+    {"discrete_lr": 1e-2,   "continuous_lr": 1e-4,   "update_ratio": 0.5},
+    {"discrete_lr": 1e-4,   "continuous_lr": 3.16e-3,"update_ratio": 0.5},
+    {"discrete_lr": 3.16e-3,"continuous_lr": 3.16e-3,"update_ratio": 0.5},
+    {"discrete_lr": 1e-2,   "continuous_lr": 3.16e-3,"update_ratio": 0.5},
+    {"discrete_lr": 1e-4,   "continuous_lr": 1e-2,   "update_ratio": 0.5},
+    {"discrete_lr": 3.16e-3,"continuous_lr": 1e-2,   "update_ratio": 0.5},
+    {"discrete_lr": 1e-2,   "continuous_lr": 1e-2,   "update_ratio": 0.5},
 ]
-USE_FIXED_PARAMS = True
+
+USE_GRID = True
+N_TRIALS_PER_CELL = 1  # Quick test: just 9 runs total
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -188,9 +192,9 @@ def optimise(param_set=None, max_trials=1):
                         f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
                         f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
                         f"parameters.alg_params.update_ratio={update_ratio}",
-                        f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-                        f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${{hydra.job.name}}"
-                    ])
+            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${{hydra.job.name}}"
+        ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
                 mean_reward, mean_reward_se = main(cfg)
             return {"mean_reward": (mean_reward, mean_reward_se)}  # TODO:, "std_reward": std_reward}
@@ -266,10 +270,83 @@ def optimise(param_set=None, max_trials=1):
         print(f"\n[RESULT] {outcome['best'][0]} results in {outcome['best'][1]} observed on trial {outcome['best'][2]}")
         print("-" * width)
 
-if USE_FIXED_PARAMS:
-    for i in range(len(FIXED_PARAMS[0])):
-        param_set = [arr[i] for arr in FIXED_PARAMS]
-        print(f"[INFO] Optimising with fixed parameters: {param_set}")
-        optimise(param_set)
+
+def run_trial_from_grid(grid_params, trial_index, trial_num):
+    """Run a single trial with grid parameters."""
+    discrete_lr = grid_params["discrete_lr"]
+    continuous_lr = grid_params["continuous_lr"]
+    update_ratio = grid_params["update_ratio"]
+    
+    # Folder name: trial_0_d1e-4_c1e-4
+    job_name = f"trial_{trial_num}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
+    
+    GlobalHydra.instance().clear()
+    with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
+        cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
+            f"algorithm={DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
+            f"environment={ENVS[0]}",
+            f"parameters.seeds={SEEDS}",
+            f"parameters.train_episodes={TRAIN_EPISODES}",
+            f"parameters.learning_steps={LEARNING_STEPS}",
+            f"parameters.cycles={CYCLES}",
+            f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
+            f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
+            f"parameters.alg_params.update_ratio={update_ratio}",
+            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${hydra.job.name}"
+        ])
+        HydraConfig.instance().set_config(cfg)
+        mean_reward, mean_reward_se = main(cfg)
+    
+    return {"mean_reward": (mean_reward, mean_reward_se)}
+
+
+def run_grid_search(client):
+    """Run grid search using Ax's attach_trial (best practice)."""
+    all_results = []
+    
+    for grid_params in GRID_PARAMS:
+        for trial_num in range(N_TRIALS_PER_CELL):
+            # Attach trial with specific params (Ax best practice)
+            trial_index = client.attach_trial(
+                parameters={
+                    "discrete_learning_rate": grid_params["discrete_lr"],
+                    "continuous_learning_rate": grid_params["continuous_lr"],
+                    "update_ratio": grid_params["update_ratio"],
+                },
+                arm_name=f"grid_{trial_num}_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}"
+            )
+            
+            # Run the trial
+            result = run_trial_from_grid(grid_params, trial_index, trial_num)
+            
+            # Report results to Ax
+            client.complete_trial(trial_index=trial_index, raw_data=result)
+            
+            all_results.append({
+                **grid_params, 
+                'trial': trial_num, 
+                'mean_reward': result['mean_reward'][0]
+            })
+            
+            # Save progress
+            client.summarize().to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+    
+    return pd.DataFrame(all_results)
+
+
+if USE_GRID:
+    # Setup client for grid search (Ax best practice for manual trials)
+    pair = f"{DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}"
+    client = Client()
+    alg1, alg2 = pair.split("-")
+    params = get_params_by_alg("discrete")[alg1] + get_params_by_alg("continuous")[alg2]
+    params = params + [update_ratio_param]
+    client.configure_experiment(name="sarl_grid", parameters=params)
+    client.configure_optimization(objective="mean_reward")
+    
+    results_df = run_grid_search(client)
+    results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
+    print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
 else:
     optimise(max_trials=MAX_TRIALS)
