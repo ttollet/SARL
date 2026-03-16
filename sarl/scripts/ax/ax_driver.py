@@ -54,16 +54,32 @@ ON_POLICY_PARAMS = {"n_steps": 100}  # TODO: Vary this parameter
 BOUNDS_LR = (1e-6, 1e-2)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 
-# ---[Toy settings]---
-MAX_TRIALS = 1 # Big effect on duration
+# ---[common choices]---
+# ~15 seconds per seed | platform dqn-sac
+LS_TOY = 1000
+CYC_TOY = 2
+
+# 2 minutes per seed | platform dqn-sac
+LS_MIN = 10_000
+CYC_MIN = 8
+
+# ??.??s per seed | platform dqn-sac
+LS_PROPER = 80_000
+CYC_PROPER = 16
+
+# ---[Core settings]---
+MAX_TRIALS = 1  # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = 1000#80_000 # per episode  # Multiple of on_policy_params.n_steps
-CYCLES = 2#8
-SEEDS = [_ for _ in range(1, 3)]#16)]
+LEARNING_STEPS = LS_MIN  # Multiple of on_policy_params.n_steps
+CYCLES = CYC_MIN
+def generate_reproducible_seeds(n_seeds: int, base_seed: int = int(time.time())) -> list:
+    return [base_seed + i for i in range(n_seeds)]
+    # return [_ for _ in range(1, 2)]
+SEEDS = generate_reproducible_seeds(2)
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
 CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
-# ---[Proper settings]---
+# ---[Old settings]---
 # MAX_TRIALS = 1000 # Big effect on duration
 # PARALLEL_LIMIT = 1
 # LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
@@ -87,7 +103,7 @@ GRID_PARAMS = [
 ]
 
 USE_GRID = True
-N_TRIALS_PER_CELL = 1  # Quick test: just 9 runs total
+N_TRIALS_PER_CELL = 2  # n=2 per cell = 18 total runs
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -192,9 +208,9 @@ def optimise(param_set=None, max_trials=1):
                         f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
                         f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
                         f"parameters.alg_params.update_ratio={update_ratio}",
-            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${{hydra.job.name}}"
-        ])
+                        f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+                        f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/$${{hydra.job.name}}"
+                    ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
                 mean_reward, mean_reward_se = main(cfg)
             return {"mean_reward": (mean_reward, mean_reward_se)}  # TODO:, "std_reward": std_reward}
@@ -276,10 +292,10 @@ def run_trial_from_grid(grid_params, trial_index, trial_num):
     discrete_lr = grid_params["discrete_lr"]
     continuous_lr = grid_params["continuous_lr"]
     update_ratio = grid_params["update_ratio"]
-    
+
     # Folder name: trial_0_d1e-4_c1e-4
     job_name = f"trial_{trial_num}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
-    
+
     GlobalHydra.instance().clear()
     with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
         cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
@@ -293,18 +309,18 @@ def run_trial_from_grid(grid_params, trial_index, trial_num):
             f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
             f"parameters.alg_params.update_ratio={update_ratio}",
             f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/${hydra.job.name}"
+            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/$${{hydra.job.name}}"
         ])
         HydraConfig.instance().set_config(cfg)
         mean_reward, mean_reward_se = main(cfg)
-    
+
     return {"mean_reward": (mean_reward, mean_reward_se)}
 
 
 def run_grid_search(client):
     """Run grid search using Ax's attach_trial (best practice)."""
     all_results = []
-    
+
     for grid_params in GRID_PARAMS:
         for trial_num in range(N_TRIALS_PER_CELL):
             # Attach trial with specific params (Ax best practice)
@@ -316,22 +332,22 @@ def run_grid_search(client):
                 },
                 arm_name=f"grid_{trial_num}_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}"
             )
-            
+
             # Run the trial
             result = run_trial_from_grid(grid_params, trial_index, trial_num)
-            
+
             # Report results to Ax
             client.complete_trial(trial_index=trial_index, raw_data=result)
-            
+
             all_results.append({
-                **grid_params, 
-                'trial': trial_num, 
+                **grid_params,
+                'trial': trial_num,
                 'mean_reward': result['mean_reward'][0]
             })
-            
+
             # Save progress
             client.summarize().to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
-    
+
     return pd.DataFrame(all_results)
 
 
@@ -344,7 +360,7 @@ if USE_GRID:
     params = params + [update_ratio_param]
     client.configure_experiment(name="sarl_grid", parameters=params)
     client.configure_optimization(objective="mean_reward")
-    
+
     results_df = run_grid_search(client)
     results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
     print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
