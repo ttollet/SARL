@@ -167,8 +167,12 @@ tests/test_output/
 .$diagram-classes.drawio.bkp
 *.DS_Store
 .DS_Store
+**/.DS_Store
 pyrightconfig.json
 sarl/scripts/ax/submitit/
 *.out
 *.err
 meeting-prep/*
+
+# Ax runs
+sarl/scripts/ax/runs/
