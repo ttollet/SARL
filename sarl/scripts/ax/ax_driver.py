@@ -70,40 +70,37 @@ CYC_PROPER = 16
 # ---[Core settings]---
 MAX_TRIALS = 1  # Big effect on duration
 PARALLEL_LIMIT = 1
-LEARNING_STEPS = LS_MIN  # Multiple of on_policy_params.n_steps
-CYCLES = CYC_MIN
-def generate_reproducible_seeds(n_seeds: int, base_seed: int = int(time.time())) -> list:
-    return [base_seed + i for i in range(n_seeds)]
-    # return [_ for _ in range(1, 2)]
-SEEDS = generate_reproducible_seeds(2)
+LEARNING_STEPS = LS_TOY  # Multiple of on_policy_params.n_steps
+CYCLES = CYC_TOY
+NUM_SEEDS = 5
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
 CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
-# ---[Old settings]---
-# MAX_TRIALS = 1000 # Big effect on duration
-# PARALLEL_LIMIT = 1
-# LEARNING_STEPS = 250_000 # per episode  # Multiple of on_policy_params.n_steps
-# CYCLES = 16
-# SEEDS = [_ for _ in range(1, 51)]
 # ENVS = ["platform", "goal"]
 # DISCRETE_ALGS = ["a2c", "dqn", "ppo"]
 # CONTINUOUS_ALGS = ["a2c", "ddpg", "ppo", "sac", "td3"]
 
 # 3×3 grid: use Ax's attach_trial for manual parameterizations
+LR_LOW = 1e-4
+LR_MED = 3.16e-3
+LR_HIGH = 1e-2
 GRID_PARAMS = [
-    {"discrete_lr": 1e-4,   "continuous_lr": 1e-4,   "update_ratio": 0.5},
-    {"discrete_lr": 3.16e-3,"continuous_lr": 1e-4,   "update_ratio": 0.5},
-    {"discrete_lr": 1e-2,   "continuous_lr": 1e-4,   "update_ratio": 0.5},
-    {"discrete_lr": 1e-4,   "continuous_lr": 3.16e-3,"update_ratio": 0.5},
-    {"discrete_lr": 3.16e-3,"continuous_lr": 3.16e-3,"update_ratio": 0.5},
-    {"discrete_lr": 1e-2,   "continuous_lr": 3.16e-3,"update_ratio": 0.5},
-    {"discrete_lr": 1e-4,   "continuous_lr": 1e-2,   "update_ratio": 0.5},
-    {"discrete_lr": 3.16e-3,"continuous_lr": 1e-2,   "update_ratio": 0.5},
-    {"discrete_lr": 1e-2,   "continuous_lr": 1e-2,   "update_ratio": 0.5},
+    {"discrete_lr": LR_LOW,   "continuous_lr": LR_LOW,   "update_ratio": 0.5},
+    {"discrete_lr": LR_MED,"continuous_lr": LR_LOW,   "update_ratio": 0.5},
+    {"discrete_lr": LR_HIGH,   "continuous_lr": LR_LOW,   "update_ratio": 0.5},
+    {"discrete_lr": LR_LOW,   "continuous_lr": LR_MED,"update_ratio": 0.5},
+    {"discrete_lr": LR_MED,"continuous_lr": LR_MED,"update_ratio": 0.5},
+    {"discrete_lr": LR_HIGH,   "continuous_lr": LR_MED,"update_ratio": 0.5},
+    {"discrete_lr": LR_LOW,   "continuous_lr": LR_HIGH,   "update_ratio": 0.5},
+    {"discrete_lr": LR_MED,"continuous_lr": LR_HIGH,   "update_ratio": 0.5},
+    {"discrete_lr": LR_HIGH,   "continuous_lr": LR_HIGH,   "update_ratio": 0.5},
 ]
 
 USE_GRID = True
-N_TRIALS_PER_CELL = 2  # n=2 per cell = 18 total runs
+def generate_reproducible_seeds(n_seeds: int, base_seed: int = int(time.time())) -> list:
+    base_seed *= 10
+    return [base_seed + i for i in range(n_seeds)]
+SEEDS = generate_reproducible_seeds(NUM_SEEDS)  # 5 seeds for variance reduction
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -287,14 +284,14 @@ def optimise(param_set=None, max_trials=1):
         print("-" * width)
 
 
-def run_trial_from_grid(grid_params, trial_index, trial_num):
+def run_trial_from_grid(grid_params, trial_index):
     """Run a single trial with grid parameters."""
     discrete_lr = grid_params["discrete_lr"]
     continuous_lr = grid_params["continuous_lr"]
     update_ratio = grid_params["update_ratio"]
 
     # Folder name: trial_0_d1e-4_c1e-4
-    job_name = f"trial_{trial_num}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
+    job_name = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
 
     GlobalHydra.instance().clear()
     with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
@@ -322,31 +319,30 @@ def run_grid_search(client):
     all_results = []
 
     for grid_params in GRID_PARAMS:
-        for trial_num in range(N_TRIALS_PER_CELL):
-            # Attach trial with specific params (Ax best practice)
-            trial_index = client.attach_trial(
-                parameters={
-                    "discrete_learning_rate": grid_params["discrete_lr"],
-                    "continuous_learning_rate": grid_params["continuous_lr"],
-                    "update_ratio": grid_params["update_ratio"],
-                },
-                arm_name=f"grid_{trial_num}_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}"
-            )
+        # Attach trial with specific params (Ax best practice)
+        trial_index = client.attach_trial(
+            parameters={
+                "discrete_learning_rate": grid_params["discrete_lr"],
+                "continuous_learning_rate": grid_params["continuous_lr"],
+                "update_ratio": grid_params["update_ratio"],
+            },
+            arm_name=f"grid_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}"
+        )
 
-            # Run the trial
-            result = run_trial_from_grid(grid_params, trial_index, trial_num)
+        # Run the trial
+        result = run_trial_from_grid(grid_params, trial_index)
 
-            # Report results to Ax
-            client.complete_trial(trial_index=trial_index, raw_data=result)
+        # Report results to Ax
+        client.complete_trial(trial_index=trial_index, raw_data=result)
 
-            all_results.append({
-                **grid_params,
-                'trial': trial_num,
-                'mean_reward': result['mean_reward'][0]
-            })
+        all_results.append({
+            **grid_params,
+            'num_seeds': len(SEEDS),
+            'mean_reward': result['mean_reward'][0]
+        })
 
-            # Save progress
-            client.summarize().to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+        # Save progress
+        client.summarize().to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
 
     return pd.DataFrame(all_results)
 
