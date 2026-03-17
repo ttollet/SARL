@@ -97,9 +97,13 @@ GRID_PARAMS = [
 ]
 
 USE_GRID = True
-def generate_reproducible_seeds(n_seeds: int, base_seed: int = int(time.time())) -> list:
-    base_seed *= 10
+
+def generate_reproducible_seeds(n_seeds: int) -> list:
+    """Generate seeds from timestamp, kept in valid range (0 to 2**32 - 1)."""
+    import time
+    base_seed = int(time.time()) % (2**32 - 1)
     return [base_seed + i for i in range(n_seeds)]
+
 SEEDS = generate_reproducible_seeds(NUM_SEEDS)  # 5 seeds for variance reduction
 
 ## %% ---- SCRIPT START ----
