@@ -44,7 +44,7 @@ warnings.filterwarnings("ignore")
 # ===Constants===
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
-LOCAL_DEBUG_MODE = True  # INFO: Disable for production
+LOCAL_DEBUG_MODE = False  # INFO: Disable for production (SLURM mode)
 CPU_CORES_PER_TASK = 4
 HYDRA_CONFIG_PATH = "../../config"
 TRAIN_EPISODES = 40_000  # WARN: Not used for converter, here for ease
@@ -69,10 +69,10 @@ CYC_PROPER = 16
 
 # ---[Core settings]---
 MAX_TRIALS = 1  # Big effect on duration
-PARALLEL_LIMIT = 1
-LEARNING_STEPS = LS_TOY  # Multiple of on_policy_params.n_steps
-CYCLES = CYC_TOY
-NUM_SEEDS = 5
+PARALLEL_LIMIT = 150  # 9 trials × 15 seeds = 135 parallel jobs
+LEARNING_STEPS = LS_PROPER  # 80,000 steps for proper learning
+CYCLES = CYC_PROPER        # 16 cycles
+NUM_SEEDS = 15             # 15 seeds for variance reduction
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]  # DQN platform, PPO goal
 CONTINUOUS_ALGS = ["sac"]  # SAC best in paper
@@ -98,13 +98,9 @@ GRID_PARAMS = [
 
 USE_GRID = True
 
-def generate_reproducible_seeds(n_seeds: int) -> list:
-    """Generate seeds from timestamp, kept in valid range (0 to 2**32 - 1)."""
-    import time
-    base_seed = int(time.time()) % (2**32 - 1)
-    return [base_seed + i for i in range(n_seeds)]
-
-SEEDS = generate_reproducible_seeds(NUM_SEEDS)  # 5 seeds for variance reduction
+NUM_SEEDS = 15  # Number of seeds for variance reduction
+BASE_SEED = 1000  # Base seed for reproducibility
+SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
 
 ## %% ---- SCRIPT START ----
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -181,7 +177,7 @@ def optimise(param_set=None, max_trials=1):
             # Setup SubmitIt
             # executor = AutoExecutor(folder="submitit", cluster=cluster)
             executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
-            executor.update_parameters(timeout_min=60) # Timeout of the slurm job. Not including slurm scheduling delay.
+            executor.update_parameters(timeout_min=180) # Timeout of the slurm job. Not including slurm scheduling delay.
             executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
             return executor
         executor = get_executor()
@@ -288,13 +284,42 @@ def optimise(param_set=None, max_trials=1):
         print("-" * width)
 
 
-def run_trial_from_grid(grid_params, trial_index):
-    """Run a single trial with grid parameters."""
+def run_single_seed(grid_params, trial_index, seed):
+    """Run a single seed with grid parameters. Each seed is a separate SLURM job."""
     discrete_lr = grid_params["discrete_lr"]
     continuous_lr = grid_params["continuous_lr"]
     update_ratio = grid_params["update_ratio"]
 
-    # Folder name: trial_0_d1e-4_c1e-4
+    # Folder name: trial_0_d1e-4_c1e-4_u0.5/seed_12345
+    job_name = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}_seed{seed}"
+
+    GlobalHydra.instance().clear()
+    with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
+        cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
+            f"algorithm={DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
+            f"environment={ENVS[0]}",
+            f"parameters.seeds=[{seed}]",  # Single seed
+            f"parameters.train_episodes={TRAIN_EPISODES}",
+            f"parameters.learning_steps={LEARNING_STEPS}",
+            f"parameters.cycles={CYCLES}",
+            f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
+            f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
+            f"parameters.alg_params.update_ratio={update_ratio}",
+            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}/seed_{seed}/$${{hydra.job.name}}"
+        ])
+        HydraConfig.instance().set_config(cfg)
+        mean_reward, mean_reward_se = main(cfg)
+
+    return {"mean_reward": mean_reward, "mean_reward_se": mean_reward_se}
+
+
+def run_trial_from_grid(grid_params, trial_index):
+    """Run a single trial with grid parameters (all seeds sequentially - for debug mode)."""
+    discrete_lr = grid_params["discrete_lr"]
+    continuous_lr = grid_params["continuous_lr"]
+    update_ratio = grid_params["update_ratio"]
+
     job_name = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
 
     GlobalHydra.instance().clear()
@@ -310,7 +335,7 @@ def run_trial_from_grid(grid_params, trial_index):
             f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
             f"parameters.alg_params.update_ratio={update_ratio}",
             f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/$${{hydra.job.name}}"
+            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}/$${{hydra.job.name}}"
         ])
         HydraConfig.instance().set_config(cfg)
         mean_reward, mean_reward_se = main(cfg)
@@ -319,36 +344,120 @@ def run_trial_from_grid(grid_params, trial_index):
 
 
 def run_grid_search(client):
-    """Run grid search using Ax's attach_trial (best practice)."""
+    """Run grid search with ALL seeds as separate SLURM jobs (full parallelism)."""
     all_results = []
 
+    # Setup executor for parallel SLURM jobs
+    executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
+    executor.update_parameters(timeout_min=60)  # ~10 min per seed
+    executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
+
+    # Determine if we should run in parallel or sequential mode
+    run_in_parallel = not LOCAL_DEBUG_MODE
+
+    if run_in_parallel:
+        print(f"[INFO] Running in FULL PARALLEL mode: {len(GRID_PARAMS)} trials × {len(SEEDS)} seeds = {len(GRID_PARAMS) * len(SEEDS)} parallel jobs")
+    else:
+        print(f"[INFO] Running in SEQUENTIAL mode (debug): {len(GRID_PARAMS)} trials × {len(SEEDS)} seeds")
+
+    # Attach all trials to Ax first
+    trial_indices = {}
     for grid_params in GRID_PARAMS:
-        # Attach trial with specific params (Ax best practice)
         trial_index = client.attach_trial(
             parameters={
                 "discrete_learning_rate": grid_params["discrete_lr"],
                 "continuous_learning_rate": grid_params["continuous_lr"],
                 "update_ratio": grid_params["update_ratio"],
             },
-            arm_name=f"grid_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}"
+            arm_name=f"grid_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}_u{grid_params['update_ratio']}"
         )
+        trial_indices[id(grid_params)] = trial_index
 
-        # Run the trial
-        result = run_trial_from_grid(grid_params, trial_index)
+    if run_in_parallel:
+        # Submit ALL 135 jobs at once
+        print(f"[INFO] Submitting all {len(GRID_PARAMS) * len(SEEDS)} jobs to SLURM...")
+        
+        all_jobs = []
+        for grid_params in GRID_PARAMS:
+            trial_index = trial_indices[id(grid_params)]
+            for seed in SEEDS:
+                job = executor.submit(run_single_seed, grid_params, trial_index, seed)
+                all_jobs.append({
+                    'job': job,
+                    'trial_index': trial_index,
+                    'grid_params': grid_params,
+                    'seed': seed
+                })
+        
+        print(f"[INFO] All jobs submitted. Waiting for completion...")
 
-        # Report results to Ax
-        client.complete_trial(trial_index=trial_index, raw_data=result)
+        # Collect results by trial
+        trial_results = {}
+        for job_info in all_jobs:
+            job = job_info['job']
+            trial_index = job_info['trial_index']
+            grid_params = job_info['grid_params']
+            seed = job_info['seed']
+            
+            print(f"[INFO] Waiting for trial {trial_index}, seed {seed}...")
+            result = job.result()
+            
+            if trial_index not in trial_results:
+                trial_results[trial_index] = {'grid_params': grid_params, 'rewards': []}
+            trial_results[trial_index]['rewards'].append(result['mean_reward'])
+            print(f"[INFO] Trial {trial_index}, seed {seed} completed: mean_reward = {result['mean_reward']:.4f}")
 
-        all_results.append({
-            **grid_params,
-            'num_seeds': len(SEEDS),
-            'mean_reward': result['mean_reward'][0]
-        })
+        # Compute stats for each trial and report to Ax
+        for trial_index, data in trial_results.items():
+            rewards = np.array(data['rewards'])
+            mean_reward = float(np.mean(rewards))
+            sem = float(np.std(rewards, ddof=1) / np.sqrt(len(rewards)))
+            
+            # Report results to Ax with SE
+            client.complete_trial(trial_index=trial_index, raw_data={"mean_reward": (mean_reward, sem)})
+            
+            grid_params = data['grid_params']
+            all_results.append({
+                **grid_params,
+                'trial_index': trial_index,
+                'num_seeds': len(SEEDS),
+                'mean_reward': mean_reward,
+                'std_error': sem
+            })
+            
+            print(f"[INFO] Trial {trial_index} complete: mean_reward = {mean_reward:.4f} ± {sem:.4f}")
 
-        # Save progress
-        client.summarize().to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+    else:
+        # Sequential mode (debug) - run all seeds in one job
+        for grid_params in GRID_PARAMS:
+            trial_index = trial_indices[id(grid_params)]
+            result = run_trial_from_grid(grid_params, trial_index)
+            mean_reward = result['mean_reward'][0]
+            sem = result['mean_reward'][1]
 
-    return pd.DataFrame(all_results)
+            # Report results to Ax
+            client.complete_trial(trial_index=trial_index, raw_data=result)
+
+            all_results.append({
+                **grid_params,
+                'trial_index': trial_index,
+                'num_seeds': len(SEEDS),
+                'mean_reward': mean_reward,
+                'std_error': sem
+            })
+            
+            # Save progress after each trial
+            results_df = pd.DataFrame(all_results)
+            results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+            print(f"[INFO] Trial {trial_index} complete: mean_reward = {mean_reward:.4f} ± {sem:.4f}")
+
+    # Save final results with SE
+    results_df = pd.DataFrame(all_results)
+    results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+    results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
+    print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
+
+    return results_df
 
 
 if USE_GRID:
@@ -362,7 +471,6 @@ if USE_GRID:
     client.configure_optimization(objective="mean_reward")
 
     results_df = run_grid_search(client)
-    results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
-    print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
+    print(f"[INFO] Grid search complete!")
 else:
     optimise(max_trials=MAX_TRIALS)
