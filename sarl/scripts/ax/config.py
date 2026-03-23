@@ -38,6 +38,12 @@ NUM_SEEDS = 15
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
 
+# Quick test settings for local development
+LS_TEST = 10_000
+CYC_TEST = 2
+NUM_SEEDS_TEST = 3
+MAX_TRIALS_TEST = 3
+
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]
 CONTINUOUS_ALGS = ["sac"]

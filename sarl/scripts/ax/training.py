@@ -14,8 +14,14 @@ from config import (
 )
 
 
-def build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir=""):
+def build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir="",
+                 learning_steps=None, cycles=None):
     """Build Hydra config for training. Shared by all execution modes."""
+    if learning_steps is None:
+        learning_steps = LEARNING_STEPS
+    if cycles is None:
+        cycles = CYCLES
+
     GlobalHydra.instance().clear()
     with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
         cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
@@ -23,8 +29,8 @@ def build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_
             f"environment={ENVS[0]}",
             f"parameters.seeds={seeds}",
             f"parameters.train_episodes={TRAIN_EPISODES}",
-            f"parameters.learning_steps={LEARNING_STEPS}",
-            f"parameters.cycles={CYCLES}",
+            f"parameters.learning_steps={learning_steps}",
+            f"parameters.cycles={cycles}",
             f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
             f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
             f"parameters.alg_params.update_ratio={update_ratio}",
@@ -35,8 +41,10 @@ def build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_
     return cfg
 
 
-def run_training(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir=""):
+def run_training(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir="",
+                 learning_steps=None, cycles=None):
     """Execute training with given parameters. Returns (mean_reward, mean_reward_se)."""
-    cfg = build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir)
+    cfg = build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir,
+                       learning_steps=learning_steps, cycles=cycles)
     mean_reward, mean_reward_se = main(cfg)
     return mean_reward, mean_reward_se

@@ -3,14 +3,17 @@
 Ax-driven hyperparameter optimization for SARL agents.
 
 Usage:
-    python main.py              # Run Bayesian optimization
+    python main.py                      # Run Bayesian optimization
+    python main.py --grid               # Run grid search
+    python main.py --test               # Quick local test (few seeds, short training)
+    python main.py --grid --test        # Quick local grid search test
 
 References:
     - https://ax.dev/docs/0.5.0/tutorials/submitit/
     - https://ax.dev/docs/0.5.0/bayesopt/
 """
 
-import os
+import argparse
 import yaml
 from pathlib import Path
 from datetime import datetime
@@ -22,22 +25,23 @@ from config import (
     SEEDS, LEARNING_STEPS, CYCLES,
     TRAIN_EPISODES, ON_POLICY_PARAMS,
     update_ratio_param, get_params_by_alg,
-    USE_GRID, run_dir
+    run_dir,
+    LS_TEST, CYC_TEST, NUM_SEEDS_TEST, MAX_TRIALS_TEST
 )
 from grid_search import run_grid_search
-from bayes_opt import optimise
+from bayes_opt import optimise, plot_best_scores
 
 
-def create_config_file(run_dir):
+def create_config_file(run_dir, learning_steps, cycles, seeds):
     """Save run configuration to YAML."""
     config = {
         'run_timestamp': datetime.now().strftime("%Y-%m-%d_%H-%M"),
         'settings': {
             'algorithm': f"{DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
             'environment': ENVS[0],
-            'seeds': SEEDS,
-            'learning_steps': LEARNING_STEPS,
-            'cycles': CYCLES,
+            'seeds': seeds,
+            'learning_steps': learning_steps,
+            'cycles': cycles,
             'train_episodes': TRAIN_EPISODES,
             'on_policy_n_steps': ON_POLICY_PARAMS['n_steps']
         }
@@ -48,10 +52,28 @@ def create_config_file(run_dir):
 
 
 if __name__ == "__main__":
-    Path(run_dir).mkdir(parents=True, exist_ok=True)
-    create_config_file(run_dir)
+    parser = argparse.ArgumentParser(description="Ax-driven hyperparameter optimization")
+    parser.add_argument("--grid", action="store_true", help="Run grid search instead of Bayesian optimization")
+    parser.add_argument("--test", action="store_true", help="Use quick test settings (few seeds, short training)")
+    args = parser.parse_args()
 
-    if USE_GRID:
+    # Determine settings
+    if args.test:
+        learning_steps = LS_TEST
+        cycles = CYC_TEST
+        seeds = [1000 + i for i in range(NUM_SEEDS_TEST)]
+        max_trials = MAX_TRIALS_TEST
+        print(f"[TEST MODE] learning_steps={learning_steps}, cycles={cycles}, seeds={seeds}, max_trials={max_trials}")
+    else:
+        learning_steps = LEARNING_STEPS
+        cycles = CYCLES
+        seeds = SEEDS
+        max_trials = 1
+
+    Path(run_dir).mkdir(parents=True, exist_ok=True)
+    create_config_file(run_dir, learning_steps, cycles, seeds)
+
+    if args.grid:
         pair = f"{DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}"
         client = Client()
         alg1, alg2 = pair.split("-")
@@ -60,7 +82,9 @@ if __name__ == "__main__":
         client.configure_experiment(name="sarl_grid", parameters=params)
         client.configure_optimization(objective="mean_reward")
 
-        results_df = run_grid_search(client)
+        results_df = run_grid_search(client, learning_steps=learning_steps, cycles=cycles, seeds=seeds)
         print("[INFO] Grid search complete!")
     else:
-        optimise(max_trials=1)
+        optimise(max_trials=max_trials, learning_steps=learning_steps, cycles=cycles, seeds=seeds)
+        # Plot best scores after BO completes
+        plot_best_scores(run_dir)

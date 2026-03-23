@@ -3,8 +3,13 @@ Bayesian optimization functions using Ax.
 """
 import os
 import time
+from datetime import datetime
 from itertools import product
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from submitit import AutoExecutor, LocalJob, DebugJob
 
 from config import (
@@ -16,23 +21,86 @@ from config import (
 from training import run_training
 
 
+best_scores_history = []
+best_so_far = None
+
+
 def save_client(client, wip=False):
-    from datetime import datetime
-    yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
     Path(run_dir).mkdir(parents=True, exist_ok=True)
     if wip:
         df = client.summarize()
-        df.to_csv(f"{run_dir}/wip-{yyyy_mm_dd_hhmm}-client.csv", index=False)
+        df.to_csv(f"{run_dir}/wip-client.csv", index=False)
     else:
-        client.summarize().to_csv(f"{run_dir}/{yyyy_mm_dd_hhmm}-client.csv", index=False)
-        client.save_to_json_file(f"{run_dir}/{yyyy_mm_dd_hhmm}-client.json")
+        df = client.summarize()
+        df.to_csv(f"{run_dir}/client.csv", index=False)
+        client.save_to_json_file(f"{run_dir}/client.json")
     return True
 
 
-def optimise(param_set=None, max_trials=1):
+def track_best_score(mean_reward, trial_index, params):
+    """Track best observed score over time."""
+    global best_so_far
+    if best_so_far is None or mean_reward > best_so_far:
+        best_so_far = mean_reward
+    best_scores_history.append({
+        'trial': trial_index,
+        'mean_reward': mean_reward,
+        'best_so_far': best_so_far,
+        'params': params
+    })
+
+
+def plot_best_scores(output_dir=None):
+    """Plot best observed scores from BO run."""
+    if output_dir is None:
+        output_dir = run_dir
+
+    if not best_scores_history:
+        print("[WARN] No best scores history to plot")
+        return
+
+    trials = [h['trial'] for h in best_scores_history]
+    rewards = [h['mean_reward'] for h in best_scores_history]
+    best = [h['best_so_far'] for h in best_scores_history]
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(trials, rewards, 'bo-', markersize=8, label='Mean Reward')
+    ax.plot(trials, best, 'g--', linewidth=2, label='Best So Far')
+    if best_so_far is not None:
+        ax.axhline(y=best_so_far, color='r', linestyle=':', alpha=0.5, label=f'Final Best: {best_so_far:.4f}')
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Reward')
+    ax.set_title('Bayesian Optimization: Best Observed Scores')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    output_path = f"{output_dir}/{timestamp}-best-scores.png"
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"[INFO] Saved best scores plot to {output_path}")
+    plt.close()
+
+    # Save history to CSV
+    history_df = pd.DataFrame(best_scores_history)
+    history_df.to_csv(f"{output_dir}/best_scores_history.csv", index=False)
+    print(f"[INFO] Saved best scores history to {output_dir}/best_scores_history.csv")
+
+
+def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, seeds=None):
     """
     Bayesian optimization using Ax with qLogNoisyExpectedImprovement acquisition function.
     """
+    global best_scores_history, best_so_far
+    best_scores_history = []
+    best_so_far = None
+
+    if seeds is None:
+        seeds = SEEDS
+    if learning_steps is None:
+        learning_steps = 80_000
+    if cycles is None:
+        cycles = 16
+
     width = os.get_terminal_size().columns
 
     for pair, env in list(product(pairs, ENVS)):
@@ -63,10 +131,11 @@ def optimise(param_set=None, max_trials=1):
                 continuous_lr = params['continuous_learning_rate']
                 update_ratio = params['update_ratio']
 
-            job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{SEEDS}"
+            job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{seeds}"
             mean_reward, mean_reward_se = run_training(
-                discrete_lr, continuous_lr, update_ratio, SEEDS, job_name,
-                run_subdir=f"trial_{trial_index}"
+                discrete_lr, continuous_lr, update_ratio, seeds, job_name,
+                run_subdir=f"trial_{trial_index}",
+                learning_steps=learning_steps, cycles=cycles
             )
             return {"mean_reward": (mean_reward, mean_reward_se)}
 
@@ -85,18 +154,20 @@ def optimise(param_set=None, max_trials=1):
                         print(f"[INFO] Submitting parameters: {parameters}")
                         job = executor.submit(objective_function, parameters, trial_index)
                         submitted_jobs += 1
-                        jobs.append((job, trial_index))
+                        jobs.append((job, trial_index, parameters))
                         time.sleep(1)
 
                 def learn_from_any_previous_trials():
-                    for job, trial_index in jobs[:]:
+                    for job, trial_index, params in jobs[:]:
                         if job.done() or type(job) in [LocalJob, DebugJob]:
                             result = job.result()
+                            mean_reward = result['mean_reward'][0]
                             print(f"\n[JOB RESULT]: {result}")
                             print("-" * width)
+                            track_best_score(mean_reward, trial_index, params)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=result)
                             save_client(client, wip=True)
-                            _ = jobs.remove((job, trial_index))
+                            _ = jobs.remove((job, trial_index, params))
 
                 run_trials()
                 learn_from_any_previous_trials()
