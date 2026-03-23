@@ -44,7 +44,7 @@ warnings.filterwarnings("ignore")
 # ===Constants===
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
-LOCAL_DEBUG_MODE = False  # INFO: Disable for production (SLURM mode)
+LOCAL_DEBUG_MODE = True  # INFO: Disable for production (SLURM mode)
 CPU_CORES_PER_TASK = 1  # 1 core for serial partition compatibility
 HYDRA_CONFIG_PATH = "../../config"
 TRAIN_EPISODES = 40_000  # WARN: Not used for converter, here for ease
@@ -96,7 +96,7 @@ GRID_PARAMS = [
     {"discrete_lr": LR_HIGH,   "continuous_lr": LR_HIGH,   "update_ratio": 0.5},
 ]
 
-USE_GRID = True
+USE_GRID = False
 
 NUM_SEEDS = 15  # Number of seeds for variance reduction
 BASE_SEED = 1000  # Base seed for reproducibility
@@ -218,10 +218,10 @@ def optimise(param_set=None, max_trials=1):
                 discrete_lr = params['discrete_learning_rate']
                 continuous_lr = params['continuous_learning_rate']
                 update_ratio = params['update_ratio']
-            
+
             job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{SEEDS}"
             mean_reward, mean_reward_se = run_training(
-                discrete_lr, continuous_lr, update_ratio, SEEDS, job_name, 
+                discrete_lr, continuous_lr, update_ratio, SEEDS, job_name,
                 run_subdir=f"trial_{trial_index}"
             )
             return {"mean_reward": (mean_reward, mean_reward_se)}
@@ -361,7 +361,6 @@ def run_grid_search(client):
         trial_indices[id(grid_params)] = trial_index
 
     if run_in_parallel:
-        # Submit ALL 135 jobs at once
         print(f"[INFO] Submitting all {len(GRID_PARAMS) * len(SEEDS)} jobs to SLURM...")
 
         all_jobs = []
