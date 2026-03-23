@@ -1,23 +1,24 @@
 #!/usr/bin/env python3
 """
-Produce grid results: merge, analyze, and visualize grid search results.
+Analyze and visualize grid search results.
 
 Usage:
-    python produce_grid.py runs/2026-03-16_03-00
-    python produce_grid.py runs/2026-03-16_03-00 runs/2026-03-16_05-00
-    python produce_grid.py "runs/*/"  # glob pattern
+    python analyze.py runs/2026-03-16_03-00
+    python analyze.py runs/2026-03-16_03-00 runs/2026-03-16_05-00
+    python analyze.py "runs/*/"
 """
 
 import argparse
-import pandas as pd
-from pathlib import Path
 import re
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import pandas as pd
+import seaborn as sns
+from scipy import stats
 
 
 def extract_run_id(path: str) -> str:
@@ -56,8 +57,6 @@ def merge_grid_results(run_dirs: list) -> pd.DataFrame:
         sys.exit(1)
     
     merged = pd.concat(all_dfs, ignore_index=True)
-    
-    # Add combined trial count per cell
     merged = merged.sort_values(['discrete_lr', 'continuous_lr', 'run_id'])
     merged['n_trials'] = merged.groupby(['discrete_lr', 'continuous_lr']).cumcount() + 1
     
@@ -66,8 +65,6 @@ def merge_grid_results(run_dirs: list) -> pd.DataFrame:
 
 def analyze_subsets(merged_df: pd.DataFrame, max_n: int = None):
     """Run ANOVA on different subset sizes."""
-    from scipy import stats
-    
     print("\n" + "=" * 50)
     print("ANOVA Results by Subset Size")
     print("=" * 50)
@@ -79,7 +76,6 @@ def analyze_subsets(merged_df: pd.DataFrame, max_n: int = None):
     for n in range(2, max_n + 1):
         subset = merged_df[merged_df['n_trials'] <= n]
         
-        # Check we have enough samples per group
         group_counts = subset.groupby(['discrete_lr', 'continuous_lr']).size()
         if group_counts.min() < 2:
             continue
@@ -107,7 +103,6 @@ def print_summary(merged_df: pd.DataFrame):
     print(f"Max trials per cell: {merged_df['n_trials'].max()}")
     print(f"Runs included: {list(merged_df['run_id'].unique())}")
     
-    # Per-cell summary
     print("\n--- Per-Cell Statistics ---")
     cell_stats = merged_df.groupby(['discrete_lr', 'continuous_lr']).agg({
         'mean_reward': ['mean', 'std', 'count']
@@ -119,11 +114,9 @@ def create_visualizations(merged_df: pd.DataFrame, output_dir: str = "."):
     """Create heatmap and other visualizations."""
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
     
-    # Get the max n for the heatmap (use all available data)
     max_n = merged_df['n_trials'].max()
     latest_data = merged_df[merged_df['n_trials'] == max_n]
     
-    # Create pivot table for heatmap
     pivot = latest_data.pivot(
         index='continuous_lr', 
         columns='discrete_lr', 
@@ -131,24 +124,14 @@ def create_visualizations(merged_df: pd.DataFrame, output_dir: str = "."):
     )
     pivot = pivot.sort_index(ascending=False)
     
-    # Heatmap with mean rewards
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
     
-    # Left: Mean reward heatmap
     sns.heatmap(pivot, annot=True, fmt=".2f", cmap="RdYlGn", 
                 ax=axes[0], cbar_kws={'label': 'Mean Reward'})
     axes[0].set_title(f"Mean Reward (n={max_n} trials per cell)\n{output_dir}")
     axes[0].set_xlabel("Discrete Learning Rate")
     axes[0].set_ylabel("Continuous Learning Rate")
     
-    # Right: Standard deviation heatmap (shows variance)
-    pivot_std = latest_data.pivot(
-        index='continuous_lr', 
-        columns='discrete_lr', 
-        values='mean_reward'
-    ).apply(lambda x: latest_data.groupby(['discrete_lr', 'continuous_lr'])['mean_reward'].std().mean())
-    
-    # Calculate actual std per cell
     std_data = latest_data.groupby(['continuous_lr', 'discrete_lr'])['mean_reward'].std().unstack()
     sns.heatmap(std_data, annot=True, fmt=".2f", cmap="YlOrRd",
                 ax=axes[1], cbar_kws={'label': 'Std Dev'})
@@ -162,7 +145,6 @@ def create_visualizations(merged_df: pd.DataFrame, output_dir: str = "."):
     print(f"\n[INFO] Saved heatmap to {heatmap_path}")
     plt.close()
     
-    # ANOVA convergence plot
     anova_results = analyze_subsets(merged_df)
     if anova_results is not None and len(anova_results) > 0:
         fig, ax = plt.subplots(figsize=(10, 5))
@@ -185,53 +167,26 @@ def create_visualizations(merged_df: pd.DataFrame, output_dir: str = "."):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Merge, analyze, and visualize grid search results"
-    )
-    parser.add_argument(
-        "run_dirs", 
-        nargs="+", 
-        help="Run directories to merge (or glob pattern)"
-    )
-    parser.add_argument(
-        "--output", "-o", 
-        default="merged_grid_results.csv",
-        help="Output filename for merged results"
-    )
-    parser.add_argument(
-        "--no-analyze", 
-        action="store_true",
-        help="Skip ANOVA analysis"
-    )
-    parser.add_argument(
-        "--visualize", "-v",
-        action="store_true",
-        default=True,
-        help="Create visualizations (default: True)"
-    )
-    parser.add_argument(
-        "--max-n",
-        type=int,
-        default=None,
-        help="Maximum n to include in analysis"
-    )
+    parser = argparse.ArgumentParser(description="Merge, analyze, and visualize grid search results")
+    parser.add_argument("run_dirs", nargs="+", help="Run directories to merge (or glob pattern)")
+    parser.add_argument("--output", "-o", default="merged_grid_results.csv", help="Output filename")
+    parser.add_argument("--no-analyze", action="store_true", help="Skip ANOVA analysis")
+    parser.add_argument("--visualize", "-v", action="store_true", default=True, help="Create visualizations")
+    parser.add_argument("--max-n", type=int, default=None, help="Maximum n to include")
     
     args = parser.parse_args()
     
     print(f"Merging {len(args.run_dirs)} run directories...")
     
     merged = merge_grid_results(args.run_dirs)
-    
     print_summary(merged)
     
     if not args.no_analyze:
         analyze_subsets(merged, max_n=args.max_n)
     
-    # Save merged results
     merged.to_csv(args.output, index=False)
     print(f"\n[INFO] Saved merged results to {args.output}")
     
-    # Create visualizations
     if args.visualize:
         output_dir = Path(args.output).parent if Path(args.output).parent != Path('.') else "."
         create_visualizations(merged, output_dir=str(output_dir))
