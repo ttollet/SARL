@@ -153,8 +153,39 @@ def get_params_by_alg(label:str = ""):
         "sac": shared_params + [],
         "td3": shared_params + [],
     }
-# pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(get_params_by_alg().keys(), repeat=2)]
 pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_ALGS)]
+
+
+# === Core Shared Functions ===
+# INFO: Centralized config building and training execution.
+#       Used by both Bayesian optimization (optimise) and grid search (run_grid_search).
+
+def build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir=""):
+    """Build Hydra config for training. Shared by all execution modes."""
+    GlobalHydra.instance().clear()
+    with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
+        cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
+            f"algorithm={DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
+            f"environment={ENVS[0]}",
+            f"parameters.seeds={seeds}",
+            f"parameters.train_episodes={TRAIN_EPISODES}",
+            f"parameters.learning_steps={LEARNING_STEPS}",
+            f"parameters.cycles={CYCLES}",
+            f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
+            f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
+            f"parameters.alg_params.update_ratio={update_ratio}",
+            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
+            f"hydra.run.dir={run_dir}/trials/{run_subdir}/$${{hydra.job.name}}"
+        ])
+        HydraConfig.instance().set_config(cfg)
+    return cfg
+
+
+def run_training(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir=""):
+    """Execute training with given parameters. Returns (mean_reward, mean_reward_se)."""
+    cfg = build_config(discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir)
+    mean_reward, mean_reward_se = main(cfg)
+    return mean_reward, mean_reward_se
 
 
 # %% Optimisation
@@ -163,7 +194,6 @@ pairs = [f"{alg1}-{alg2}" for alg1, alg2 in product(DISCRETE_ALGS, CONTINUOUS_AL
 def optimise(param_set=None, max_trials=1):
     for pair, env in list(product(pairs, ENVS)):
         def get_client():
-            # Setup Experiment via Ax
             client = Client()
             alg1, alg2 = pair.split("-")
             params = get_params_by_alg("discrete")[alg1] + get_params_by_alg("continuous")[alg2]
@@ -174,42 +204,26 @@ def optimise(param_set=None, max_trials=1):
         client = get_client()
 
         def get_executor():
-            # Setup SubmitIt
-            # executor = AutoExecutor(folder="submitit", cluster=cluster)
             executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
-            executor.update_parameters(timeout_min=180) # Timeout of the slurm job. Not including slurm scheduling delay.
+            executor.update_parameters(timeout_min=180)
             executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
             return executor
         executor = get_executor()
 
-        # def objective_function(params: dict[str, list[RangeParameterConfig]]):
         def objective_function(params: dict[str, float], trial_index=None):
-            # Define the Function to Optimise.
-            # Calls main() from train.py with an automated hydra config.
-            GlobalHydra.instance().clear()  # critical reset
-            with initialize(config_path=HYDRA_CONFIG_PATH, job_name=(f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{SEEDS}")):
-                if param_set is not None:
-                    print("[DEBUG] Using fixed parameters!")
-                    discrete_lr, continuous_lr, update_ratio = param_set
-                else:
-                    discrete_lr = params['discrete_learning_rate']
-                    continuous_lr = params['continuous_learning_rate']
-                    update_ratio = params['update_ratio']
-                cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
-                        f"algorithm={pair}",
-                        f"environment={env}",
-                        f"parameters.seeds={SEEDS}",
-                        f"parameters.train_episodes={TRAIN_EPISODES}",
-                        f"parameters.learning_steps={LEARNING_STEPS}",
-                        f"parameters.cycles={CYCLES}",
-                        f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
-                        f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
-                        f"parameters.alg_params.update_ratio={update_ratio}",
-                        f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-                        f"hydra.run.dir={run_dir}/trials/trial_{trial_index}/$${{hydra.job.name}}"
-                    ])
-                HydraConfig.instance().set_config(cfg)  # manually register config
-                mean_reward, mean_reward_se = main(cfg)
+            if param_set is not None:
+                print("[DEBUG] Using fixed parameters!")
+                discrete_lr, continuous_lr, update_ratio = param_set
+            else:
+                discrete_lr = params['discrete_learning_rate']
+                continuous_lr = params['continuous_learning_rate']
+                update_ratio = params['update_ratio']
+            
+            job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{SEEDS}"
+            mean_reward, mean_reward_se = run_training(
+                discrete_lr, continuous_lr, update_ratio, SEEDS, job_name, 
+                run_subdir=f"trial_{trial_index}"
+            )
             return {"mean_reward": (mean_reward, mean_reward_se)}
 
         def save_client(client, wip=False):
@@ -290,55 +304,28 @@ def run_single_seed(grid_params, trial_index, seed):
     continuous_lr = grid_params["continuous_lr"]
     update_ratio = grid_params["update_ratio"]
 
-    # Folder name: trial_0_d1e-4_c1e-4_u0.5/seed_12345
     job_name = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}_seed{seed}"
+    run_subdir = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}/seed_{seed}"
 
-    GlobalHydra.instance().clear()
-    with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
-        cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
-            f"algorithm={DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
-            f"environment={ENVS[0]}",
-            f"parameters.seeds=[{seed}]",  # Single seed
-            f"parameters.train_episodes={TRAIN_EPISODES}",
-            f"parameters.learning_steps={LEARNING_STEPS}",
-            f"parameters.cycles={CYCLES}",
-            f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
-            f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
-            f"parameters.alg_params.update_ratio={update_ratio}",
-            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}/seed_{seed}/$${{hydra.job.name}}"
-        ])
-        HydraConfig.instance().set_config(cfg)
-        mean_reward, mean_reward_se = main(cfg)
+    mean_reward, mean_reward_se = run_training(
+        discrete_lr, continuous_lr, update_ratio, [seed], job_name, run_subdir
+    )
 
     return {"mean_reward": mean_reward, "mean_reward_se": mean_reward_se}
 
 
-def run_trial_from_grid(grid_params, trial_index):
+def run_trial_from_grid(grid_params, trial_index, seeds):
     """Run a single trial with grid parameters (all seeds sequentially - for debug mode)."""
     discrete_lr = grid_params["discrete_lr"]
     continuous_lr = grid_params["continuous_lr"]
     update_ratio = grid_params["update_ratio"]
 
     job_name = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}"
+    run_subdir = f"trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}"
 
-    GlobalHydra.instance().clear()
-    with initialize(config_path=HYDRA_CONFIG_PATH, job_name=job_name):
-        cfg = compose(config_name="sarl", return_hydra_config=True, overrides=[
-            f"algorithm={DISCRETE_ALGS[0]}-{CONTINUOUS_ALGS[0]}",
-            f"environment={ENVS[0]}",
-            f"parameters.seeds={SEEDS}",
-            f"parameters.train_episodes={TRAIN_EPISODES}",
-            f"parameters.learning_steps={LEARNING_STEPS}",
-            f"parameters.cycles={CYCLES}",
-            f"parameters.alg_params.discrete_learning_rate={discrete_lr}",
-            f"parameters.alg_params.continuous_learning_rate={continuous_lr}",
-            f"parameters.alg_params.update_ratio={update_ratio}",
-            f"parameters.alg_params.on_policy_params.n_steps={ON_POLICY_PARAMS['n_steps']}",
-            f"hydra.run.dir={run_dir}/trials/trial_{trial_index}_d{discrete_lr:.0e}_c{continuous_lr:.0e}_u{update_ratio}/$${{hydra.job.name}}"
-        ])
-        HydraConfig.instance().set_config(cfg)
-        mean_reward, mean_reward_se = main(cfg)
+    mean_reward, mean_reward_se = run_training(
+        discrete_lr, continuous_lr, update_ratio, seeds, job_name, run_subdir
+    )
 
     return {"mean_reward": (mean_reward, mean_reward_se)}
 
@@ -431,7 +418,7 @@ def run_grid_search(client):
         # Sequential mode (debug) - run all seeds in one job
         for grid_params in GRID_PARAMS:
             trial_index = trial_indices[id(grid_params)]
-            result = run_trial_from_grid(grid_params, trial_index)
+            result = run_trial_from_grid(grid_params, trial_index, SEEDS)
             mean_reward = result['mean_reward'][0]
             sem = result['mean_reward'][1]
 
