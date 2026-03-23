@@ -10,7 +10,8 @@ from submitit import AutoExecutor
 
 from config import (
     GRID_PARAMS, SEEDS, LOCAL_DEBUG_MODE,
-    CPU_CORES_PER_TASK, run_dir, cluster
+    CPU_CORES_PER_TASK, run_dir, cluster,
+    BASE_SEED, NUM_SEEDS, ROTATE_SEEDS_PER_TRIALS
 )
 from training import run_training
 
@@ -109,8 +110,17 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
     else:
         print(f"[INFO] Running in SEQUENTIAL mode (debug): {len(GRID_PARAMS)} trials × {len(seeds)} seeds")
 
+    if ROTATE_SEEDS_PER_TRIALS:
+        print(f"[INFO] ROTATE_SEEDS_PER_TRIALS=True: Each trial will use different seeds (sequential chunks)")
+
     trial_indices = {}
-    for grid_params in GRID_PARAMS:
+    for grid_idx, grid_params in enumerate(GRID_PARAMS):
+        # Compute per-trial seeds if rotation is enabled
+        if ROTATE_SEEDS_PER_TRIALS:
+            trial_seeds = [BASE_SEED + grid_idx * NUM_SEEDS + i for i in range(NUM_SEEDS)]
+        else:
+            trial_seeds = seeds
+
         trial_index = client.attach_trial(
             parameters={
                 "discrete_learning_rate": grid_params["discrete_lr"],
@@ -119,15 +129,15 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
             },
             arm_name=f"grid_d{grid_params['discrete_lr']:.0e}_c{grid_params['continuous_lr']:.0e}_u{grid_params['update_ratio']}"
         )
-        trial_indices[id(grid_params)] = trial_index
+        trial_indices[id(grid_params)] = (trial_index, trial_seeds)
 
     if run_in_parallel:
         print(f"[INFO] Submitting all {len(GRID_PARAMS) * len(seeds)} jobs to SLURM...")
 
         all_jobs = []
         for grid_params in GRID_PARAMS:
-            trial_index = trial_indices[id(grid_params)]
-            for seed in seeds:
+            trial_index, trial_seeds = trial_indices[id(grid_params)]
+            for seed in trial_seeds:
                 job = executor.submit(run_single_seed, grid_params, trial_index, seed, learning_steps, cycles)
                 all_jobs.append({
                     'job': job,
@@ -189,9 +199,9 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
 
     else:
         for grid_params in GRID_PARAMS:
-            trial_index = trial_indices[id(grid_params)]
+            trial_index, trial_seeds = trial_indices[id(grid_params)]
             trial_start = time.time()
-            result = run_trial_from_grid(grid_params, trial_index, seeds, learning_steps, cycles)
+            result = run_trial_from_grid(grid_params, trial_index, trial_seeds, learning_steps, cycles)
             trial_duration = time.time() - trial_start
             all_job_durations.append(trial_duration)
             mean_reward = result['mean_reward'][0]
@@ -203,7 +213,7 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
                 'discrete_lr': grid_params['discrete_lr'],
                 'continuous_lr': grid_params['continuous_lr'],
                 'update_ratio': grid_params['update_ratio'],
-                'seed': seeds[0],
+                'seed': trial_seeds[0],
                 'mean_reward': mean_reward,
                 'duration_seconds': trial_duration,
                 'duration': format_duration(trial_duration)

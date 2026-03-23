@@ -37,12 +37,13 @@ CYCLES = CYC_PROPER
 NUM_SEEDS = 8            # Change from 15
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
+ROTATE_SEEDS_PER_TRIALS = True  # Rotate seeds across trials for stronger statistical claims
 
 # Quick test settings for local development
 LS_TEST = 10_000
 CYC_TEST = 2
 NUM_SEEDS_TEST = 1
-MAX_TRIALS_TEST = 4
+MAX_TRIALS_TEST = 16
 
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]

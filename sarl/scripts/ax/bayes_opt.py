@@ -16,7 +16,8 @@ from config import (
     pairs, ENVS, SEEDS,
     MAX_TRIALS, PARALLEL_LIMIT,
     update_ratio_param, get_params_by_alg,
-    CPU_CORES_PER_TASK, run_dir, cluster
+    CPU_CORES_PER_TASK, run_dir, cluster,
+    BASE_SEED, NUM_SEEDS, ROTATE_SEEDS_PER_TRIALS
 )
 from training import run_training
 
@@ -176,9 +177,15 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
                 continuous_lr = params['continuous_learning_rate']
                 update_ratio = params['update_ratio']
 
-            job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{seeds}"
+            # Compute per-trial seeds if rotation is enabled
+            if ROTATE_SEEDS_PER_TRIALS:
+                trial_seeds = [BASE_SEED + trial_index * NUM_SEEDS + i for i in range(NUM_SEEDS)]
+            else:
+                trial_seeds = seeds
+
+            job_name = f"trial_{trial_index}-{pair.replace('-', '_')}-{env}-{trial_seeds}"
             mean_reward, mean_reward_se = run_training(
-                discrete_lr, continuous_lr, update_ratio, seeds, job_name,
+                discrete_lr, continuous_lr, update_ratio, trial_seeds, job_name,
                 run_subdir=f"trial_{trial_index}",
                 learning_steps=learning_steps, cycles=cycles
             )
