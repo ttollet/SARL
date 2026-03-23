@@ -181,7 +181,8 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
 
             # Compute per-trial seeds if rotation is enabled
             if ROTATE_SEEDS_PER_TRIALS:
-                trial_seeds = [BASE_SEED + trial_index * NUM_SEEDS + i for i in range(NUM_SEEDS)]
+                num_seeds = len(seeds)
+                trial_seeds = [BASE_SEED + trial_index * num_seeds + i for i in range(num_seeds)]
             else:
                 trial_seeds = seeds
 

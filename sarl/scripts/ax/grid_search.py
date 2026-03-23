@@ -117,7 +117,8 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
     for grid_idx, grid_params in enumerate(GRID_PARAMS):
         # Compute per-trial seeds if rotation is enabled
         if ROTATE_SEEDS_PER_TRIALS:
-            trial_seeds = [BASE_SEED + grid_idx * NUM_SEEDS + i for i in range(NUM_SEEDS)]
+            num_seeds = len(seeds)
+            trial_seeds = [BASE_SEED + grid_idx * num_seeds + i for i in range(num_seeds)]
         else:
             trial_seeds = seeds
 
