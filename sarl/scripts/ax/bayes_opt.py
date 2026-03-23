@@ -23,6 +23,37 @@ from training import run_training
 
 best_scores_history = []
 best_so_far = None
+run_start_time = None
+
+
+def format_duration(seconds):
+    """Format seconds as hours:minutes:seconds."""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {secs}s"
+    elif minutes > 0:
+        return f"{minutes}m {secs}s"
+    else:
+        return f"{secs}s"
+
+
+def track_best_score(mean_reward, trial_index, params, duration=None):
+    """Track best observed score over time."""
+    global best_so_far
+    if best_so_far is None or mean_reward > best_so_far:
+        best_so_far = mean_reward
+    entry = {
+        'trial': trial_index,
+        'mean_reward': mean_reward,
+        'best_so_far': best_so_far,
+        'params': params
+    }
+    if duration is not None:
+        entry['duration_seconds'] = duration
+        entry['duration'] = format_duration(duration)
+    best_scores_history.append(entry)
 
 
 def save_client(client, wip=False):
@@ -35,19 +66,6 @@ def save_client(client, wip=False):
         df.to_csv(f"{run_dir}/client.csv", index=False)
         client.save_to_json_file(f"{run_dir}/client.json")
     return True
-
-
-def track_best_score(mean_reward, trial_index, params):
-    """Track best observed score over time."""
-    global best_so_far
-    if best_so_far is None or mean_reward > best_so_far:
-        best_so_far = mean_reward
-    best_scores_history.append({
-        'trial': trial_index,
-        'mean_reward': mean_reward,
-        'best_so_far': best_so_far,
-        'params': params
-    })
 
 
 def plot_best_scores(output_dir=None):
@@ -86,13 +104,39 @@ def plot_best_scores(output_dir=None):
     print(f"[INFO] Saved best scores history to {output_dir}/best_scores_history.csv")
 
 
+def save_timing_summary(total_duration, max_trials):
+    """Save timing summary to CSV."""
+    if not best_scores_history:
+        return
+    
+    trial_durations = [h.get('duration_seconds') for h in best_scores_history if 'duration_seconds' in h]
+    
+    timing_data = {
+        'total_duration_seconds': total_duration,
+        'total_duration': format_duration(total_duration),
+        'num_trials_completed': len([d for d in trial_durations if d is not None]),
+        'num_trials_requested': max_trials,
+        'avg_trial_duration_seconds': np.mean(trial_durations) if trial_durations else None,
+        'avg_trial_duration': format_duration(np.mean(trial_durations)) if trial_durations else None,
+        'min_trial_duration_seconds': np.min(trial_durations) if trial_durations else None,
+        'max_trial_duration_seconds': np.max(trial_durations) if trial_durations else None,
+        'start_time': datetime.fromtimestamp(run_start_time).strftime('%Y-%m-%d %H:%M:%S') if run_start_time else None,
+        'end_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+    
+    timing_df = pd.DataFrame([timing_data])
+    timing_df.to_csv(f"{run_dir}/timing_summary.csv", index=False)
+    print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
+
+
 def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, seeds=None):
     """
     Bayesian optimization using Ax with qLogNoisyExpectedImprovement acquisition function.
     """
-    global best_scores_history, best_so_far
+    global best_scores_history, best_so_far, run_start_time
     best_scores_history = []
     best_so_far = None
+    run_start_time = time.time()
 
     if seeds is None:
         seeds = SEEDS
@@ -102,6 +146,7 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
         cycles = 16
 
     width = os.get_terminal_size().columns
+    print(f"[INFO] BO run started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     for pair, env in list(product(pairs, ENVS)):
         def get_client():
@@ -154,23 +199,24 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
                         print(f"[INFO] Submitting parameters: {parameters}")
                         job = executor.submit(objective_function, parameters, trial_index)
                         submitted_jobs += 1
-                        jobs.append((job, trial_index, parameters))
+                        jobs.append((job, trial_index, parameters, time.time()))
                         time.sleep(1)
 
                 def learn_from_any_previous_trials():
-                    for job, trial_index, params in jobs[:]:
+                    for job, trial_index, params, start_time in jobs[:]:
                         if job.done() or type(job) in [LocalJob, DebugJob]:
                             result = job.result()
                             mean_reward = result['mean_reward'][0]
+                            duration = time.time() - start_time
                             print(f"\n[JOB RESULT]: {result}")
+                            print(f"[TIMING] Trial {trial_index} completed in {format_duration(duration)}")
                             print("-" * width)
-                            track_best_score(mean_reward, trial_index, params)
-                            # Save best_scores_history after each trial
+                            track_best_score(mean_reward, trial_index, params, duration)
                             history_df = pd.DataFrame(best_scores_history)
                             history_df.to_csv(f"{run_dir}/best_scores_history.csv", index=False)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=result)
                             save_client(client, wip=True)
-                            _ = jobs.remove((job, trial_index, params))
+                            _ = jobs.remove((job, trial_index, params, start_time))
 
                 run_trials()
                 learn_from_any_previous_trials()
@@ -181,4 +227,11 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
 
         outcome = run_parallel_exps()
         print(f"\n[RESULT] {outcome['best'][0]} results in {outcome['best'][1]} observed on trial {outcome['best'][2]}")
+
+        total_duration = time.time() - run_start_time
+        print(f"\n[TIMING] BO run completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[TIMING] Total duration: {format_duration(total_duration)}")
+        print("-" * width)
+
+        save_timing_summary(total_duration, max_trials)
         print("-" * width)

@@ -21,7 +21,7 @@ from datetime import datetime
 from ax.api.client import Client
 
 from config import (
-    DISCRETE_ALGS, CONTINUOUS_ALGS, ENVS,
+    DISCRETE_ALGS, CONTINUOUS_ALGS, ENVS, MAX_TRIALS,
     SEEDS, LEARNING_STEPS, CYCLES,
     TRAIN_EPISODES, ON_POLICY_PARAMS,
     update_ratio_param, get_params_by_alg,
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         learning_steps = LEARNING_STEPS
         cycles = CYCLES
         seeds = SEEDS
-        max_trials = 1
+        max_trials = MAX_TRIALS
 
     Path(run_dir).mkdir(parents=True, exist_ok=True)
     create_config_file(run_dir, learning_steps, cycles, seeds)

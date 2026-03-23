@@ -27,22 +27,22 @@ LS_TOY = 1000
 CYC_TOY = 2
 LS_MIN = 10_000
 CYC_MIN = 8
-LS_PROPER = 80_000
-CYC_PROPER = 16
+LS_PROPER = 30_000       # Change from 80_000
+CYC_PROPER = 6           # Change from 16
 
-MAX_TRIALS = 1
+MAX_TRIALS = 15          # Change from 1
 PARALLEL_LIMIT = 150
 LEARNING_STEPS = LS_PROPER
 CYCLES = CYC_PROPER
-NUM_SEEDS = 15
+NUM_SEEDS = 8            # Change from 15
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
 
 # Quick test settings for local development
 LS_TEST = 10_000
 CYC_TEST = 2
-NUM_SEEDS_TEST = 3
-MAX_TRIALS_TEST = 3
+NUM_SEEDS_TEST = 1
+MAX_TRIALS_TEST = 4
 
 ENVS = ["platform"]
 DISCRETE_ALGS = ["dqn"]
