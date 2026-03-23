@@ -26,7 +26,8 @@ from config import (
     TRAIN_EPISODES, ON_POLICY_PARAMS,
     update_ratio_param, get_params_by_alg,
     run_dir,
-    LS_TEST, CYC_TEST, NUM_SEEDS_TEST, MAX_TRIALS_TEST
+    LS_TEST, CYC_TEST, NUM_SEEDS_TEST, MAX_TRIALS_TEST,
+    PARALLEL_LIMIT, PARALLEL_LIMIT_TEST
 )
 from grid_search import run_grid_search
 from bayes_opt import optimise, plot_best_scores
@@ -63,12 +64,14 @@ if __name__ == "__main__":
         cycles = CYC_TEST
         seeds = [1000 + i for i in range(NUM_SEEDS_TEST)]
         max_trials = MAX_TRIALS_TEST
-        print(f"[TEST MODE] learning_steps={learning_steps}, cycles={cycles}, seeds={seeds}, max_trials={max_trials}")
+        parallel_limit = PARALLEL_LIMIT_TEST
+        print(f"[TEST MODE] learning_steps={learning_steps}, cycles={cycles}, seeds={seeds}, max_trials={max_trials}, parallel_limit={parallel_limit}")
     else:
         learning_steps = LEARNING_STEPS
         cycles = CYCLES
         seeds = SEEDS
         max_trials = MAX_TRIALS
+        parallel_limit = PARALLEL_LIMIT
 
     Path(run_dir).mkdir(parents=True, exist_ok=True)
     create_config_file(run_dir, learning_steps, cycles, seeds)
@@ -85,6 +88,6 @@ if __name__ == "__main__":
         results_df = run_grid_search(client, learning_steps=learning_steps, cycles=cycles, seeds=seeds)
         print("[INFO] Grid search complete!")
     else:
-        optimise(max_trials=max_trials, learning_steps=learning_steps, cycles=cycles, seeds=seeds)
+        optimise(max_trials=max_trials, learning_steps=learning_steps, cycles=cycles, seeds=seeds, parallel_limit=parallel_limit)
         # Plot best scores after BO completes
         plot_best_scores(run_dir)

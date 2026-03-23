@@ -14,7 +14,7 @@ from submitit import AutoExecutor, LocalJob, DebugJob
 
 from config import (
     pairs, ENVS, SEEDS,
-    MAX_TRIALS, PARALLEL_LIMIT,
+    MAX_TRIALS, PARALLEL_LIMIT, PARALLEL_LIMIT_TEST,
     update_ratio_param, get_params_by_alg,
     CPU_CORES_PER_TASK, run_dir, cluster,
     BASE_SEED, NUM_SEEDS, ROTATE_SEEDS_PER_TRIALS
@@ -130,7 +130,7 @@ def save_timing_summary(total_duration, max_trials):
     print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
 
 
-def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, seeds=None):
+def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, seeds=None, parallel_limit=None):
     """
     Bayesian optimization using Ax with qLogNoisyExpectedImprovement acquisition function.
     """
@@ -145,6 +145,8 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
         learning_steps = 80_000
     if cycles is None:
         cycles = 16
+    if parallel_limit is None:
+        parallel_limit = PARALLEL_LIMIT
 
     width = os.get_terminal_size().columns
     print(f"[INFO] BO run started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -200,7 +202,7 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
                 def run_trials():
                     global submitted_jobs
                     trial_index_to_param = client.get_next_trials(
-                        min(PARALLEL_LIMIT - len(jobs), max_trials - submitted_jobs)
+                        min(parallel_limit - len(jobs), max_trials - submitted_jobs)
                     )
                     for trial_index, parameters in trial_index_to_param.items():
                         print(f"[INFO] Submitting parameters: {parameters}")
