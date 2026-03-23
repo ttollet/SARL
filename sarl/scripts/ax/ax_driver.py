@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore")
 # ROOT_STR = "./sarl/scripts/ax"
 ROOT_STR = "."
 LOCAL_DEBUG_MODE = False  # INFO: Disable for production (SLURM mode)
-CPU_CORES_PER_TASK = 4
+CPU_CORES_PER_TASK = 1  # 1 core for serial partition compatibility
 HYDRA_CONFIG_PATH = "../../config"
 TRAIN_EPISODES = 40_000  # WARN: Not used for converter, here for ease
 # ---[on-policy algs]---
@@ -210,7 +210,7 @@ def optimise(param_set=None, max_trials=1):
                     ])
                 HydraConfig.instance().set_config(cfg)  # manually register config
                 mean_reward, mean_reward_se = main(cfg)
-            return {"mean_reward": (mean_reward, mean_reward_se)}  # TODO:, "std_reward": std_reward}
+            return {"mean_reward": (mean_reward, mean_reward_se)}
 
         def save_client(client, wip=False):
             # Path(ROOT_STR).mkdir(parents=True, exist_ok=True)
@@ -376,7 +376,7 @@ def run_grid_search(client):
     if run_in_parallel:
         # Submit ALL 135 jobs at once
         print(f"[INFO] Submitting all {len(GRID_PARAMS) * len(SEEDS)} jobs to SLURM...")
-        
+
         all_jobs = []
         for grid_params in GRID_PARAMS:
             trial_index = trial_indices[id(grid_params)]
@@ -388,7 +388,7 @@ def run_grid_search(client):
                     'grid_params': grid_params,
                     'seed': seed
                 })
-        
+
         print(f"[INFO] All jobs submitted. Waiting for completion...")
 
         # Collect results by trial
@@ -398,10 +398,10 @@ def run_grid_search(client):
             trial_index = job_info['trial_index']
             grid_params = job_info['grid_params']
             seed = job_info['seed']
-            
+
             print(f"[INFO] Waiting for trial {trial_index}, seed {seed}...")
             result = job.result()
-            
+
             if trial_index not in trial_results:
                 trial_results[trial_index] = {'grid_params': grid_params, 'rewards': []}
             trial_results[trial_index]['rewards'].append(result['mean_reward'])
@@ -412,10 +412,10 @@ def run_grid_search(client):
             rewards = np.array(data['rewards'])
             mean_reward = float(np.mean(rewards))
             sem = float(np.std(rewards, ddof=1) / np.sqrt(len(rewards)))
-            
+
             # Report results to Ax with SE
             client.complete_trial(trial_index=trial_index, raw_data={"mean_reward": (mean_reward, sem)})
-            
+
             grid_params = data['grid_params']
             all_results.append({
                 **grid_params,
@@ -424,7 +424,7 @@ def run_grid_search(client):
                 'mean_reward': mean_reward,
                 'std_error': sem
             })
-            
+
             print(f"[INFO] Trial {trial_index} complete: mean_reward = {mean_reward:.4f} ± {sem:.4f}")
 
     else:
@@ -445,7 +445,7 @@ def run_grid_search(client):
                 'mean_reward': mean_reward,
                 'std_error': sem
             })
-            
+
             # Save progress after each trial
             results_df = pd.DataFrame(all_results)
             results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
