@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-Analyze and visualize grid search results.
+Analyze and visualize grid search and Bayesian optimization results.
 
 Usage:
+    # Grid search analysis
     python analyze.py runs/2026-03-16_03-00
     python analyze.py runs/2026-03-16_03-00 runs/2026-03-16_05-00
     python analyze.py "runs/*/"
+
+    # Bayesian optimization progress (live during run)
+    python analyze.py --bo-progress runs/2026-03-23_02-12
 """
 
 import argparse
@@ -166,15 +170,147 @@ def create_visualizations(merged_df: pd.DataFrame, output_dir: str = "."):
     print("[INFO] Visualizations complete!")
 
 
+def plot_bo_progress(run_dir):
+    """Plot BO progress from best_scores_history.csv and wip-client.csv.
+    
+    Shows:
+    - Complete trials as circles (o)
+    - In-progress trials as crosses (x)
+    - Best so far as dashed line
+    """
+    run_path = Path(run_dir)
+    
+    # Load complete trial history
+    history_path = run_path / "best_scores_history.csv"
+    wip_path = run_path / "wip-client.csv"
+    
+    if not history_path.exists() and not wip_path.exists():
+        print(f"[ERROR] No best_scores_history.csv or wip-client.csv found in {run_dir}")
+        return
+    
+    # Get completed trials from history
+    completed_trials = {}
+    if history_path.exists():
+        history_df = pd.read_csv(history_path)
+        for _, row in history_df.iterrows():
+            completed_trials[int(row['trial'])] = {
+                'mean_reward': row['mean_reward'],
+                'best_so_far': row['best_so_far']
+            }
+    
+    # Get all trials from wip-client.csv for status
+    in_progress_trials = {}
+    if wip_path.exists():
+        wip_df = pd.read_csv(wip_path)
+        for _, row in wip_df.iterrows():
+            trial_idx = int(row['trial_index'])
+            if trial_idx not in completed_trials:
+                in_progress_trials[trial_idx] = {
+                    'mean_reward': row['mean_reward'],
+                    'status': row['trial_status']
+                }
+    
+    # Combine and sort all trials
+    all_trials = {}
+    for trial_idx, data in completed_trials.items():
+        all_trials[trial_idx] = {**data, 'complete': True}
+    for trial_idx, data in in_progress_trials.items():
+        if trial_idx not in all_trials:
+            all_trials[trial_idx] = {**data, 'complete': False}
+    
+    if not all_trials:
+        print("[WARN] No trial data found")
+        return
+    
+    sorted_trials = sorted(all_trials.keys())
+    
+    # Prepare plot data
+    complete_x, complete_y = [], []
+    inprogress_x, inprogress_y = [], []
+    best_so_far_x, best_so_far_y = [], []
+    current_best = 0.0
+    
+    for trial_idx in sorted_trials:
+        data = all_trials[trial_idx]
+        if data['complete']:
+            complete_x.append(trial_idx)
+            complete_y.append(data['mean_reward'])
+            if data['mean_reward'] > current_best:
+                current_best = data['mean_reward']
+        else:
+            inprogress_x.append(trial_idx)
+            inprogress_y.append(data['mean_reward'])
+        best_so_far_x.append(trial_idx)
+        best_so_far_y.append(current_best)
+    
+    # Create plot
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Plot best so far first (dashed line)
+    ax.plot(best_so_far_x, best_so_far_y, 'g--', linewidth=2, label='Best So Far', zorder=1)
+    
+    # Plot complete trials as circles
+    if complete_x:
+        ax.scatter(complete_x, complete_y, c='blue', s=100, marker='o', 
+                   label=f'Complete ({len(complete_x)})', zorder=3)
+        ax.plot(complete_x, complete_y, 'b-', alpha=0.3, zorder=1)
+    
+    # Plot in-progress trials as crosses
+    if inprogress_x:
+        ax.scatter(inprogress_x, inprogress_y, c='red', s=150, marker='x', 
+                   linewidths=2, label=f'In Progress ({len(inprogress_x)})', zorder=3)
+    
+    # Annotate points with values
+    for trial_idx in sorted_trials:
+        data = all_trials[trial_idx]
+        label = f"{data['mean_reward']:.4f}"
+        offset = 0.02 if data['complete'] else -0.03
+        ax.annotate(label, (trial_idx, data['mean_reward'] + offset), 
+                   fontsize=8, ha='center', va='bottom' if data['complete'] else 'top')
+    
+    ax.set_xlabel('Trial Number')
+    ax.set_ylabel('Mean Reward')
+    total = len(complete_x) + len(inprogress_x)
+    ax.set_title(f'Bayesian Optimization Progress ({len(complete_x)}/{total} complete)')
+    ax.legend(loc='lower right')
+    ax.grid(True, alpha=0.3)
+    
+    # Save (overwrite best-scores-live.png)
+    output_path = run_path / "best-scores-live.png"
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    print(f"[INFO] Saved BO progress plot to {output_path}")
+    plt.close()
+    
+    # Print summary
+    print(f"\n--- BO Progress Summary ---")
+    print(f"Total trials: {total}")
+    print(f"Complete: {len(complete_x)}")
+    print(f"In progress: {len(inprogress_x)}")
+    if complete_y:
+        print(f"Current best: {current_best:.4f}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Merge, analyze, and visualize grid search results")
-    parser.add_argument("run_dirs", nargs="+", help="Run directories to merge (or glob pattern)")
+    parser.add_argument("run_dirs", nargs="*", help="Run directories to merge (or glob pattern)")
+    parser.add_argument("--bo-progress", metavar="DIR", help="Show BO progress plot (specify run directory)")
     parser.add_argument("--output", "-o", default="merged_grid_results.csv", help="Output filename")
     parser.add_argument("--no-analyze", action="store_true", help="Skip ANOVA analysis")
     parser.add_argument("--visualize", "-v", action="store_true", default=True, help="Create visualizations")
     parser.add_argument("--max-n", type=int, default=None, help="Maximum n to include")
     
     args = parser.parse_args()
+    
+    # BO progress mode (standalone)
+    if args.bo_progress:
+        plot_bo_progress(args.bo_progress)
+        return
+    
+    # Grid search analysis mode
+    if not args.run_dirs:
+        print("[ERROR] Please specify run directories or use --bo-progress")
+        parser.print_help()
+        sys.exit(1)
     
     print(f"Merging {len(args.run_dirs)} run directories...")
     

@@ -165,6 +165,9 @@ def optimise(param_set=None, max_trials=1, learning_steps=None, cycles=None, see
                             print(f"\n[JOB RESULT]: {result}")
                             print("-" * width)
                             track_best_score(mean_reward, trial_index, params)
+                            # Save best_scores_history after each trial
+                            history_df = pd.DataFrame(best_scores_history)
+                            history_df.to_csv(f"{run_dir}/best_scores_history.csv", index=False)
                             _ = client.complete_trial(trial_index=trial_index, raw_data=result)
                             save_client(client, wip=True)
                             _ = jobs.remove((job, trial_index, params))
