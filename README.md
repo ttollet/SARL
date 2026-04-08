@@ -44,15 +44,15 @@ A parameterized action-space, requires an agent to select from a discrete set of
 
 Instructions for use on Linux, Mac OSX, or Windows (via WSL).
 * Ensure Python is installed `python --version`
-* Ensure Poetry is installed `poetry --version`
-    * You can install poetry with `curl -sSL https://install.python-poetry.org | python3 -`
-    * Full instructions and alternative methods can be found [here](https://python-poetry.org/docs/#installing-with-the-official-installer)
+* Ensure uv is installed `uv --version`
+    * You can install uv with `curl -LsSf https://astral.sh/uv/install.sh | sh`
+    * Full instructions and alternative methods can be found [here](https://docs.astral.sh/uv/getting-started/installation/)
 * Clone this repository `git clone https://github.com/ttollet/SARL.git`
 * Change directory `cd SARL`
-* Install dependencies to virtual environment `poetry install`
-* Check functionality `poetry run pytest`
-* Enter virtual environment with `poetry shell`
-    * Exit the virtual environment with `exit`
+* Install dependencies to virtual environment `uv sync`
+* Check functionality `uv run pytest`
+* Activate virtual environment with `source .venv/bin/activate`
+    * Exit the virtual environment with `deactivate`
 
 ## Examples
 ```
