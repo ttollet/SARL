@@ -42,7 +42,8 @@ A parameterized action-space, requires an agent to select from a discrete set of
 
 ## Usage
 
-Instructions for use on Linux, Mac OSX, or Windows (via WSL).
+### Option 1: Local Setup (Linux, Mac OSX, or Windows via WSL)
+
 * Ensure Python is installed `python --version`
 * Ensure uv is installed `uv --version`
     * You can install uv with `curl -LsSf https://astral.sh/uv/install.sh | sh`
@@ -53,6 +54,23 @@ Instructions for use on Linux, Mac OSX, or Windows (via WSL).
 * Check functionality `uv run pytest`
 * Activate virtual environment with `source .venv/bin/activate`
     * Exit the virtual environment with `deactivate`
+
+### Option 2: Using devenv
+
+* Install [devenv](https://devenv.sh/getting-started/)
+* Clone this repository `git clone https://github.com/ttollet/SARL.git`
+* Change directory `cd SARL`
+* Run `devenv up` to set up the development environment
+* Use `devenv shell` to activate the environment
+* Run tests and commands within the devenv shell
+
+### Option 3: Using Dev Containers
+
+* Install [Docker](https://docs.docker.com/get-docker/)
+* Install [Visual Studio Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+* Clone this repository and open it in VS Code
+* Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and select "Dev Containers: Reopen in Container"
+* The environment will be automatically set up and ready to use
 
 ## Examples
 ```
