@@ -55,7 +55,15 @@ A parameterized action-space, requires an agent to select from a discrete set of
 * Activate virtual environment with `source .venv/bin/activate`
     * Exit the virtual environment with `deactivate`
 
-### Option 2: Using devenv
+### Option 2: Using Dev Containers
+
+* Install [Docker](https://docs.docker.com/get-docker/)
+* Install [Visual Studio Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+* Clone this repository and open it in VS Code
+* Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and select "Dev Containers: Reopen in Container"
+* The environment will be automatically set up and ready to use
+
+### Option 3: Using devenv
 
 * Install [devenv](https://devenv.sh/getting-started/)
 * Clone this repository `git clone https://github.com/ttollet/SARL.git`
@@ -63,14 +71,6 @@ A parameterized action-space, requires an agent to select from a discrete set of
 * Run `devenv up` to set up the development environment
 * Use `devenv shell` to activate the environment
 * Run tests and commands within the devenv shell
-
-### Option 3: Using Dev Containers
-
-* Install [Docker](https://docs.docker.com/get-docker/)
-* Install [Visual Studio Code](https://code.visualstudio.com/) and the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-* Clone this repository and open it in VS Code
-* Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and select "Dev Containers: Reopen in Container"
-* The environment will be automatically set up and ready to use
 
 ## Examples
 ```
