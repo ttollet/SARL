@@ -3,17 +3,33 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1775615090,
-        "narHash": "sha256-M5QzOzoMuc/ieezSRfM12E4fYOHmwd8OPlwemcr5AZ8=",
+        "lastModified": 1775617467,
+        "narHash": "sha256-0iOpPFssABIEEBHM9ZXMCUe23DotXjltbduIXQ+D6Qk=",
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "4f5c627d4047c5ed378aa0481d33052a5b94dbf3",
+        "rev": "f3b19068801716db2fdae61f67afdb8e7d5332f3",
         "type": "github"
       },
       "original": {
         "dir": "src/modules",
         "owner": "cachix",
         "repo": "devenv",
+        "type": "github"
+      }
+    },
+    "flake-compat": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1767039857,
+        "narHash": "sha256-vNpUSpF5Nuw8xvDLj2KCwwksIbjua2LZCqhV1LNRDns=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "5edf11c44bc78a0d334f6334cdaf7d60d732daab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
         "type": "github"
       }
     },
@@ -33,6 +49,27 @@
         "owner": "cachix",
         "ref": "rolling",
         "repo": "devenv-nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs-python": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1774026014,
+        "narHash": "sha256-UBBQYhyAKayDCi6iCIKShQXWRvwyj5omLPOuSeVjtOY=",
+        "owner": "cachix",
+        "repo": "nixpkgs-python",
+        "rev": "8b6d4103312761d4144b7bf9aebcc2f394b7e325",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "nixpkgs-python",
         "type": "github"
       }
     },
@@ -56,7 +93,8 @@
     "root": {
       "inputs": {
         "devenv": "devenv",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "nixpkgs-python": "nixpkgs-python"
       }
     }
   },
