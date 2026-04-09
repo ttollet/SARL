@@ -180,6 +180,8 @@ meeting-prep/*
 
 # Ax runs
 sarl/scripts/ax/runs/
+sarl/scripts/ax/outputs/
+sarl/scripts/ax/outputs-manual/
 
 # Devenv
 .devenv*
@@ -191,3 +193,4 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+docker
