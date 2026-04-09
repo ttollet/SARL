@@ -17,7 +17,7 @@
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "pip3 install --user -r requirements.txt",
 	"onCreateCommand": "pip install uv && uv sync",
-	"postCreateCommand": "apt-get update && apt-get install -y git csvlens",
+	"postCreateCommand": "apt-get update && apt-get install -y git csvlens && git config --global --add safe.directory /workspaces/SARL",
 	"updateContentCommand": "uv sync",
 
 	// Configure tool-specific properties.
