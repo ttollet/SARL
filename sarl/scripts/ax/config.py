@@ -23,8 +23,8 @@ ON_POLICY_PARAMS = {"n_steps": 100}
 BOUNDS_LR = (1e-6, 1e-2)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 
-LS_TOY = 1000
-CYC_TOY = 2
+LS_TOY = 1000       # Learning steps
+CYC_TOY = 2         # Cycles
 LS_MIN = 10_000
 CYC_MIN = 8
 LS_PROPER = 30_000       # Change from 80_000
