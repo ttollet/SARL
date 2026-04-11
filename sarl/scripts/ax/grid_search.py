@@ -78,7 +78,7 @@ def save_grid_timing_summary(total_duration, trial_durations, num_trials, num_se
         'start_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'end_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     }
-    
+
     timing_df = pd.DataFrame([timing_data])
     timing_df.to_csv(f"{run_dir}/timing_summary.csv", index=False)
     print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
@@ -111,7 +111,7 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
         print(f"[INFO] Running in SEQUENTIAL mode (debug): {len(GRID_PARAMS)} trials × {len(seeds)} seeds")
 
     if ROTATE_SEEDS_PER_TRIALS:
-        print(f"[INFO] ROTATE_SEEDS_PER_TRIALS=True: Each trial will use different seeds (sequential chunks)")
+        print("[INFO] ROTATE_SEEDS_PER_TRIALS=True: Each trial will use different seeds (sequential chunks)")
 
     trial_indices = {}
     for grid_idx, grid_params in enumerate(GRID_PARAMS):
@@ -148,7 +148,7 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
                     'start_time': time.time()
                 })
 
-        print(f"[INFO] All jobs submitted. Waiting for completion...")
+        print("[INFO] All jobs submitted. Waiting for completion...")
 
         trial_results = {}
         for job_info in all_jobs:
