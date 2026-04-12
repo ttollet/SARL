@@ -1,6 +1,7 @@
 """
 Configuration constants for Ax-driven hyperparameter optimization.
 """
+
 from datetime import datetime
 from itertools import product
 from pathlib import Path
@@ -10,8 +11,17 @@ from ax.api.configs import RangeParameterConfig
 ROOT_STR = "."
 LOCAL_DEBUG_MODE = True
 
+RUN_STATE = "incomplete"
+
+
+def get_run_path(
+    run_type: str = "bayesian", run_scale: str = "proper", run_state: str = "incomplete"
+) -> str:
+    return f"{ROOT_STR}/runs/{run_type}/{run_scale}/{run_state}/{datetime.now().strftime('%Y-%m-%d_%H-%M')}"
+
+
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
-run_dir = f"{ROOT_STR}/runs/{yyyy_mm_dd_hhmm}"
+run_dir = get_run_path("bayesian", "proper", RUN_STATE)
 Path(run_dir).mkdir(parents=True, exist_ok=True)
 
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
@@ -23,21 +33,25 @@ ON_POLICY_PARAMS = {"n_steps": 100}
 BOUNDS_LR = (1e-6, 1e-2)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 
-LS_TOY = 1000       # Learning steps
-CYC_TOY = 2         # Cycles
+LS_DEBUG = 1000  # Learning steps
+CYC_DEBUG = 2  # Cycles
 LS_MIN = 10_000
 CYC_MIN = 8
-LS_PROPER = 30_000       # Change from 80_000
-CYC_PROPER = 6           # Change from 16
+LS_PROPER = 30_000  # Change from 80_000
+CYC_PROPER = 6  # Change from 16
 
-MAX_TRIALS = 100          # Change from 1
-PARALLEL_LIMIT = 1        # Change from 5  # TODO: Consider changing before running on cluster!
+MAX_TRIALS = 100  # Change from 1
+PARALLEL_LIMIT = (
+    1  # Change from 5  # TODO: Consider changing before running on cluster!
+)
 LEARNING_STEPS = LS_PROPER
 CYCLES = CYC_PROPER
-NUM_SEEDS = 5            # Change from 15
+NUM_SEEDS = 5  # Change from 15
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
-ROTATE_SEEDS_PER_TRIALS = True  # Rotate seeds across trials for stronger statistical claims
+ROTATE_SEEDS_PER_TRIALS = (
+    True  # Rotate seeds across trials for stronger statistical claims
+)
 
 # Quick test settings for local development
 LS_TEST = 10_000
@@ -71,7 +85,7 @@ update_ratio_param = RangeParameterConfig(
     name="update_ratio",
     bounds=BOUNDS_UPDATE_RATIO,
     parameter_type="float",
-    scaling="linear"
+    scaling="linear",
 )
 
 
@@ -81,7 +95,7 @@ def get_params_by_alg(label: str = ""):
             name=f"{label}_learning_rate",
             bounds=BOUNDS_LR,
             parameter_type="float",
-            scaling="log"
+            scaling="log",
         )
     ]
     return {
