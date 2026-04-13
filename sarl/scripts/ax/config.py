@@ -16,7 +16,6 @@ def get_run_path(run_type: str, run_scale: str, run_state: str = "incomplete") -
     return f"{ROOT_STR}/runs/{run_type}/{run_scale}/{run_state}/{datetime.now().strftime('%Y-%m-%d_%H-%M')}"
 
 
-yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
 run_dir = get_run_path("bayesian", "proper", "incomplete")
 Path(run_dir).mkdir(parents=True, exist_ok=True)
 
@@ -72,8 +71,6 @@ GRID_PARAMS = [
     {"discrete_lr": LR_MED, "continuous_lr": LR_HIGH, "update_ratio": 0.5},
     {"discrete_lr": LR_HIGH, "continuous_lr": LR_HIGH, "update_ratio": 0.5},
 ]
-
-USE_GRID = True
 
 update_ratio_param = RangeParameterConfig(
     name="update_ratio",

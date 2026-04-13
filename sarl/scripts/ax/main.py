@@ -65,15 +65,16 @@ def create_config_file(run_dir, learning_steps, cycles, seeds):
 
 
 def mark_run_complete(src_path: str) -> Path:
-    """Move run from incomplete to complete directory."""
+    """Move run from incomplete to parent directory."""
     src = Path(src_path)
-    dst = Path(str(src).replace("/incomplete/", "/complete/"))
+    dst = src.parent.parent / src.name
     shutil.move(src, dst)
-    print(f"[INFO] Moved run to complete: {dst}")
+    print(f"[INFO] Moved run to {dst}")
     return dst
 
 
 if __name__ == "__main__":
+    assert Path.cwd().name == "ax"
     parser = argparse.ArgumentParser(
         description="Ax-driven hyperparameter optimization"
     )
