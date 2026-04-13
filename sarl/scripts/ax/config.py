@@ -11,17 +11,13 @@ from ax.api.configs import RangeParameterConfig
 ROOT_STR = "."
 LOCAL_DEBUG_MODE = True
 
-RUN_STATE = "incomplete"
 
-
-def get_run_path(
-    run_type: str = "bayesian", run_scale: str = "proper", run_state: str = "incomplete"
-) -> str:
+def get_run_path(run_type: str, run_scale: str, run_state: str = "incomplete") -> str:
     return f"{ROOT_STR}/runs/{run_type}/{run_scale}/{run_state}/{datetime.now().strftime('%Y-%m-%d_%H-%M')}"
 
 
 yyyy_mm_dd_hhmm = datetime.now().strftime("%Y-%m-%d_%H-%M")
-run_dir = get_run_path("bayesian", "proper", RUN_STATE)
+run_dir = get_run_path("bayesian", "proper", "incomplete")
 Path(run_dir).mkdir(parents=True, exist_ok=True)
 
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
@@ -35,8 +31,6 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 
 LS_DEBUG = 1000  # Learning steps
 CYC_DEBUG = 2  # Cycles
-LS_MIN = 10_000
-CYC_MIN = 8
 LS_PROPER = 30_000  # Change from 80_000
 CYC_PROPER = 6  # Change from 16
 

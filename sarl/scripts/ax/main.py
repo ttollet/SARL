@@ -14,6 +14,7 @@ References:
 """
 
 import argparse
+import shutil
 import yaml
 from pathlib import Path
 from datetime import datetime
@@ -33,7 +34,6 @@ from config import (
     update_ratio_param,
     get_params_by_alg,
     get_run_path,
-    RUN_STATE,
     LS_TEST,
     CYC_TEST,
     NUM_SEEDS_TEST,
@@ -64,6 +64,15 @@ def create_config_file(run_dir, learning_steps, cycles, seeds):
         yaml.dump(config, f)
 
 
+def mark_run_complete(src_path: str) -> Path:
+    """Move run from incomplete to complete directory."""
+    src = Path(src_path)
+    dst = Path(str(src).replace("/incomplete/", "/complete/"))
+    shutil.move(src, dst)
+    print(f"[INFO] Moved run to complete: {dst}")
+    return dst
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Ax-driven hyperparameter optimization"
@@ -82,7 +91,7 @@ if __name__ == "__main__":
 
     run_type = "grid" if args.grid else "bayesian"
     run_scale = "debug" if args.debug else "proper"
-    run_dir = get_run_path(run_type, run_scale, RUN_STATE)
+    run_dir = get_run_path(run_type, run_scale, "incomplete")
 
     # Determine settings
     if args.debug:
@@ -118,7 +127,7 @@ if __name__ == "__main__":
         results_df = run_grid_search(
             client, learning_steps=learning_steps, cycles=cycles, seeds=seeds
         )
-        print("[INFO] Grid search complete!")
+        mark_run_complete(run_dir)
     else:
         optimise(
             max_trials=max_trials,
@@ -129,3 +138,4 @@ if __name__ == "__main__":
         )
         # Plot best scores after BO completes
         plot_best_scores(run_dir)
+        mark_run_complete(run_dir)
