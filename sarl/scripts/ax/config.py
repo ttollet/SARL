@@ -1,5 +1,12 @@
 """
 Configuration constants for Ax-driven hyperparameter optimization.
+
+Contains:
+    - Run path generation (get_run_path)
+    - Execution settings (LOCAL_DEBUG_MODE, cluster, cpus)
+    - Training hyperparameters (LEARNING_STEPS, CYCLES, SEEDS)
+    - Grid search parameters (GRID_PARAMS with lr combinations)
+    - BO parameters (BOUNDS_LR, BOUNDS_UPDATE_RATIO)
 """
 
 from datetime import datetime

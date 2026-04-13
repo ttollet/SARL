@@ -1,4 +1,14 @@
-# %% Visualisation for fixed params grid
+#!/usr/bin/env python3
+"""
+Visualization for grid search results.
+
+Generates a heatmap of mean rewards across discrete and continuous learning rates.
+
+Usage:
+    python _visualize_grid.py
+    python _visualize_grid.py runs/grid/proper/complete/2026-03-17_03-50/grid_results.csv
+"""
+
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt

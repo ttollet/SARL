@@ -1,7 +1,16 @@
 """
 Grid search execution functions.
+
+Supports both parallel (SLURM) and sequential (debug) execution modes.
+Optional wandb logging via wandb_enabled parameter.
+
+Functions:
+    run_grid_search: Main entry point for grid search execution
+    run_single_seed: Execute training for a single seed (parallel mode)
+    run_trial_from_grid: Execute training for all seeds (sequential mode)
 """
 
+import argparse
 import time
 from datetime import datetime
 
@@ -21,6 +30,44 @@ from config import (
     ROTATE_SEEDS_PER_TRIALS,
 )
 from training import run_training
+
+WANDB_AVAILABLE = False
+try:
+    import wandb
+
+    WANDB_AVAILABLE = True
+except ImportError:
+    pass
+
+_wandb_enabled = False
+_wandb_run = None
+
+
+def init_wandb(run_name=None, project="sarl-ax", config=None):
+    """Initialize wandb if available and enabled."""
+    global _wandb_enabled, _wandb_run
+    if not WANDB_AVAILABLE:
+        print("[WARN] wandb not installed, skipping wandb logging")
+        return None
+    _wandb_run = wandb.init(name=run_name, project=project, config=config)
+    _wandb_enabled = True
+    return _wandb_run
+
+
+def log_to_wandb(metrics):
+    """Log metrics to wandb if enabled."""
+    global _wandb_enabled, _wandb_run
+    if _wandb_enabled and _wandb_run:
+        wandb.log(metrics)
+
+
+def finish_wandb():
+    """Finish wandb run."""
+    global _wandb_enabled, _wandb_run
+    if _wandb_enabled and _wandb_run:
+        wandb.finish()
+        _wandb_enabled = False
+        _wandb_run = None
 
 
 def format_duration(seconds):
@@ -115,8 +162,16 @@ def save_grid_timing_summary(total_duration, trial_durations, num_trials, num_se
     print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
 
 
-def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
+def run_grid_search(
+    client,
+    learning_steps=None,
+    cycles=None,
+    seeds=None,
+    wandb_enabled=False,
+    wandb_project="sarl-ax",
+):
     """Run grid search with ALL seeds as separate SLURM jobs (full parallelism)."""
+    global _wandb_enabled
     if seeds is None:
         seeds = SEEDS
     if learning_steps is None:
@@ -128,6 +183,22 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
     all_results = []
     all_seed_results = []
     all_job_durations = []
+
+    if wandb_enabled and WANDB_AVAILABLE:
+        run_config = {
+            "learning_steps": learning_steps,
+            "cycles": cycles,
+            "seeds": seeds,
+            "grid_params": GRID_PARAMS,
+        }
+        init_wandb(
+            run_name=f"grid-{datetime.now().strftime('%Y-%m-%d_%H-%M')}",
+            project=wandb_project,
+            config=run_config,
+        )
+        print(f"[INFO] WandB enabled, project: {wandb_project}")
+    elif wandb_enabled and not WANDB_AVAILABLE:
+        print("[WARN] --wandb specified but wandb not installed")
 
     executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
     executor.update_parameters(timeout_min=60)
@@ -228,6 +299,20 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
                 }
             )
 
+            if wandb_enabled and WANDB_AVAILABLE:
+                log_to_wandb(
+                    {
+                        "trial_index": trial_index,
+                        "discrete_lr": grid_params["discrete_lr"],
+                        "continuous_lr": grid_params["continuous_lr"],
+                        "update_ratio": grid_params["update_ratio"],
+                        "seed": seed,
+                        "mean_reward": result["mean_reward"][0],
+                        "mean_reward_se": result["mean_reward"][1],
+                        "job_duration_seconds": job_duration,
+                    }
+                )
+
             if trial_index not in trial_results:
                 trial_results[trial_index] = {"grid_params": grid_params, "rewards": []}
             trial_results[trial_index]["rewards"].append(result["mean_reward"][0])
@@ -320,11 +405,14 @@ def run_grid_search(client, learning_steps=None, cycles=None, seeds=None):
     # Save timing summary
     total_duration = time.time() - run_start_time
     print(
-        f"\n[TIMING] Grid search completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        f"\n[TIMING] Grid search completed at {datetime.now().strftime('%Y-%m-%d_%H-%M_%S')}"
     )
     print(f"[TIMING] Total duration: {format_duration(total_duration)}")
     save_grid_timing_summary(
         total_duration, all_job_durations, len(GRID_PARAMS), len(seeds)
     )
+
+    if wandb_enabled and WANDB_AVAILABLE:
+        finish_wandb()
 
     return results_df

@@ -4,16 +4,15 @@ Analyze and visualize grid search and Bayesian optimization results.
 
 Usage:
     # Grid search analysis (specify full paths)
-    python analyze.py runs/grid/proper/complete/2026-03-17_03-50
-    python analyze.py runs/grid/proper/complete/2026-03-17_03-50 runs/grid/proper/incomplete/2026-03-16_05-15
-    python analyze.py "runs/grid/*/*/*"
+    python _analyze.py runs/grid/proper/complete/2026-03-17_03-50
+    python _analyze.py runs/grid/proper/complete/2026-03-17_03-50 runs/grid/proper/incomplete/2026-03-16_05-15
 
     # Bayesian optimization progress (live during run)
-    python analyze.py --bo-progress runs/bayesian/proper/incomplete/2026-03-23_14-27
+    python _analyze.py --bo-progress runs/bayesian/proper/incomplete/2026-03-23_14-27
 
     # Find runs in structure
-    python analyze.py --find grid complete
-    python analyze.py --find bayesian incomplete
+    python _analyze.py --find grid complete
+    python _analyze.py --find bayesian incomplete
 """
 
 import argparse

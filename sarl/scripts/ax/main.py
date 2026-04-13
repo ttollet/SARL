@@ -7,6 +7,7 @@ Usage:
     python main.py --grid               # Run grid search (proper)
     python main.py --debug                # Run Bayesian optimization (debug)
     python main.py --grid --debug         # Run grid search (debug)
+    python main.py --grid --wandb         # Run grid search with wandb logging
 
 References:
     - https://ax.dev/docs/0.5.0/tutorials/submitit/
@@ -88,6 +89,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Use grid search (default: Bayesian optimization)",
     )
+    parser.add_argument(
+        "--wandb",
+        action="store_true",
+        help="Enable wandb logging",
+    )
     args = parser.parse_args()
 
     run_type = "grid" if args.grid else "bayesian"
@@ -126,7 +132,11 @@ if __name__ == "__main__":
         client.configure_optimization(objective="mean_reward")
 
         results_df = run_grid_search(
-            client, learning_steps=learning_steps, cycles=cycles, seeds=seeds
+            client,
+            learning_steps=learning_steps,
+            cycles=cycles,
+            seeds=seeds,
+            wandb_enabled=args.wandb,
         )
         mark_run_complete(run_dir)
     else:
