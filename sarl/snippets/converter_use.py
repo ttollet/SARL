@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import math
-import os
 import warnings
 
 import numpy as np
@@ -233,7 +232,7 @@ def runConverter(
             learning_steps,
             cycles=cycles,
             callback=callbacks,
-            progress_bar=not _DISABLE_PROGRESS_BAR,
+            progress_bar=True,
             evaluation_interval=evaluation_interval,
             eval_mdp=eval_mdp,
             eval_episodes=eval_episodes,
