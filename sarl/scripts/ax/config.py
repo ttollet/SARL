@@ -35,16 +35,18 @@ BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 LS_DEBUG = 100  # Learning steps
 CYC_DEBUG = 1  # Cycles
 NUM_SEEDS_DEBUG = 2
-LS_PROPER = 30_000  # Change from 80_000
-CYC_PROPER = 6  # Change from 16
+MAX_TRIALS_TEST = 3
 
+LS_PROPER = 30_000  # Change from 80_000
+CYC_PROPER = 1  # Change from 16
+NUM_SEEDS = 1  # Consider 2, not too high as BO handles noise well
 MAX_TRIALS = 100  # Change from 1
+
 PARALLEL_LIMIT = (
     1  # Change from 5  # TODO: Consider changing before running on cluster!
 )
 LEARNING_STEPS = LS_PROPER
 CYCLES = CYC_PROPER
-NUM_SEEDS = 1  # Consider 2, not too high as BO handles noise well
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
 ROTATE_SEEDS_PER_TRIALS = (
@@ -55,7 +57,6 @@ ROTATE_SEEDS_PER_TRIALS = (
 LS_TEST = LS_DEBUG
 CYC_TEST = CYC_DEBUG
 NUM_SEEDS_TEST = NUM_SEEDS_DEBUG
-MAX_TRIALS_TEST = 3
 PARALLEL_LIMIT_TEST = 1  # Allows more parallelism for quick local test runs
 
 ENVS = ["platform"]
