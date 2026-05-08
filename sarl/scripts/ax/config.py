@@ -47,7 +47,7 @@ PARALLEL_LIMIT = (
 )
 LEARNING_STEPS = LS_PROPER
 CYCLES = CYC_PROPER
-NUM_SEEDS = 5  # Change from 15
+NUM_SEEDS = 1  # Consider 2, not too high as BO handles noise well
 BASE_SEED = 1000
 SEEDS = [BASE_SEED + i for i in range(NUM_SEEDS)]
 ROTATE_SEEDS_PER_TRIALS = (
@@ -58,7 +58,7 @@ ROTATE_SEEDS_PER_TRIALS = (
 LS_TEST = LS_DEBUG
 CYC_TEST = CYC_DEBUG
 NUM_SEEDS_TEST = NUM_SEEDS_DEBUG
-MAX_TRIALS_TEST = 2
+MAX_TRIALS_TEST = 3
 PARALLEL_LIMIT_TEST = 1  # Allows more parallelism for quick local test runs
 
 ENVS = ["platform"]
