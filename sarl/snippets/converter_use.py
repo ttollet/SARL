@@ -131,7 +131,7 @@ def _getAgent(
                     "discrete": discreteActionMDP,
                     "continuous": continuousActionMDP,
                 }[alg_type],
-                "verbose": 1,
+                "verbose": 0,
                 "seed": seed,
                 "tensorboard_log": {
                     "discrete": log_dir_discrete,
@@ -148,7 +148,7 @@ def _getAgent(
                     "discrete": discreteActionMDP,
                     "continuous": continuousActionMDP,
                 }[alg_type],
-                "verbose": 1,
+                "verbose": 0,
                 "seed": seed,
                 "tensorboard_log": {
                     "discrete": log_dir_discrete,

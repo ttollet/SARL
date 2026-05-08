@@ -94,6 +94,7 @@ def save_client(client, wip=False, output_dir=None):
     if wip:
         df = client.summarize()
         df.to_csv(f"{output_dir}/wip-client.csv", index=False)
+        client.save_to_json_file(f"{output_dir}/wip-client.json")
     else:
         df = client.summarize()
         df.to_csv(f"{output_dir}/client.csv", index=False)
