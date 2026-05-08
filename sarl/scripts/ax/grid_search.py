@@ -299,6 +299,10 @@ def run_grid_search(
                 }
             )
 
+            # Update WIP CSV after each seed completes (parallel mode)
+            results_df = pd.DataFrame(all_results)
+            results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+
             if wandb_enabled and WANDB_AVAILABLE:
                 log_to_wandb(
                     {
@@ -345,9 +349,12 @@ def run_grid_search(
             )
 
     else:
-        for grid_params in GRID_PARAMS:
+        for grid_idx, grid_params in enumerate(GRID_PARAMS):
             trial_index, trial_seeds = trial_indices[id(grid_params)]
             trial_start = time.time()
+            print(
+                f"[INFO] Trial {trial_index} config {grid_idx + 1}/{len(GRID_PARAMS)}: d_lr={grid_params['discrete_lr']:.0e}, c_lr={grid_params['continuous_lr']:.0e}, seeds={trial_seeds}"
+            )
             result = run_trial_from_grid(
                 grid_params, trial_index, trial_seeds, learning_steps, cycles
             )
@@ -370,13 +377,15 @@ def run_grid_search(
                 }
             )
 
-            client.complete_trial(trial_index=trial_index, raw_data=result)
+            client.complete_trial(
+                trial_index=trial_index, raw_data={"mean_reward": result["mean_reward"]}
+            )
 
             all_results.append(
                 {
                     **grid_params,
                     "trial_index": trial_index,
-                    "num_seeds": len(seeds),
+                    "num_seeds": len(trial_seeds),
                     "mean_reward": mean_reward,
                     "std_error": sem,
                     "duration_seconds": trial_duration,
@@ -384,6 +393,7 @@ def run_grid_search(
                 }
             )
 
+            # Write WIP CSV after each config completes
             results_df = pd.DataFrame(all_results)
             results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
             print(

@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 import math
+import os
+import warnings
+
 import numpy as np
+
 import gymnasium as gym
 from gymnasium import ObservationWrapper
-from gymnasium.wrappers.record_episode_statistics import RecordEpisodeStatistics  # Replaces deprecated Gymnasium Monitor wrapper
+from gymnasium.wrappers.record_episode_statistics import (
+    RecordEpisodeStatistics,
+)  # Replaces deprecated Gymnasium Monitor wrapper
 from stable_baselines3 import PPO, A2C, DQN, DDPG, SAC, TD3
 from stable_baselines3.common.logger import configure, Logger
 from stable_baselines3.common.callbacks import CallbackList
@@ -13,16 +19,19 @@ from sarl.agents.callbacks.data_callback import DataCallback
 
 
 def _getMDP(env_name, pamdp_seed):
-    '''Initialise and return a derived MDP from the chosen PAMDP'''
+    """Initialise and return a derived MDP from the chosen PAMDP"""
     env_pamdp = gym.make(env_name)
     env_pamdp.seed(pamdp_seed)  # Remove stochasticity
     np.random.seed(pamdp_seed)
+
     class IgnoreStepCount(ObservationWrapper):
         def __init__(self, env: gym.Env):
             super().__init__(env_pamdp)
             self.observation_space = self.observation_space[0]
+
         def observation(self, observation):
             return observation[0]
+
     if env_name in ["Platform-v0", "Goal-v0"]:
         env_pamdp = IgnoreStepCount(env_pamdp)  # Necessary yet unsure why
     mdp_env = PamdpToMdp(env_pamdp)
@@ -30,15 +39,25 @@ def _getMDP(env_name, pamdp_seed):
     return mdp_env
 
 
-def _getLoggingSetup(origin_log_dir, seed, env_name, write_stdout, write_csv,
-    use_tensorboard, discreteAlg, continuousAlg, cycles, learning_steps):
-    '''Return required logging variables'''
+def _getLoggingSetup(
+    origin_log_dir,
+    seed,
+    env_name,
+    write_stdout,
+    write_csv,
+    use_tensorboard,
+    discreteAlg,
+    continuousAlg,
+    cycles,
+    learning_steps,
+):
+    """Return required logging variables"""
     parent_log_dir = f"{origin_log_dir}/seed_{seed}/"
     log_dir = ""
     log_dir_discrete = ""
     log_dir_continuous = ""
-    sb3_logger_discrete:Logger = None
-    sb3_logger_continuous:Logger = None
+    sb3_logger_discrete: Logger = None
+    sb3_logger_continuous: Logger = None
     OUTPUT_OPTIONS = ["stdout", "csv", "tensorboard"]
     output_destinations = []
     for i in range(3):
@@ -50,15 +69,34 @@ def _getLoggingSetup(origin_log_dir, seed, env_name, write_stdout, write_csv,
         log_dir_continuous = f"{parent_log_dir}/{discreteAlg.lower()}-{continuousAlg.lower()}-{env_name.lower()}-continuous-{cycles}cycles-{str(learning_steps)}steps/"
         sb3_logger_continuous = configure(log_dir_continuous, output_destinations)
         log_dir = f"{parent_log_dir}/{discreteAlg.lower()}-{continuousAlg.lower()}-{env_name.lower()}-evaluation-{cycles}cycles-{str(learning_steps)}steps/"
-    return (sb3_logger_discrete, sb3_logger_continuous, log_dir,
-        log_dir_discrete, log_dir_continuous)
+    return (
+        sb3_logger_discrete,
+        sb3_logger_continuous,
+        log_dir,
+        log_dir_discrete,
+        log_dir_continuous,
+    )
 
 
-def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_info,
-    continuousAlg, env_name, alg_params):
-    '''Return agent to train'''
-    (sb3_logger_discrete, sb3_logger_continuous, log_dir, log_dir_discrete,
-        log_dir_continuous) = logging_info
+def _getAgent(
+    discrete_only,
+    continuousOnly,
+    mdp,
+    seed,
+    discreteAlg,
+    logging_info,
+    continuousAlg,
+    env_name,
+    alg_params,
+):
+    """Return agent to train"""
+    (
+        sb3_logger_discrete,
+        sb3_logger_continuous,
+        log_dir,
+        log_dir_discrete,
+        log_dir_continuous,
+    ) = logging_info
     if discrete_only:
         assert False
         # def continuousPolicy(x): return mdp.action_parameter_space.sample()
@@ -79,28 +117,47 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
         # agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
         # continuousAgent.set_logger(sb3_logger_continuous)
     else:
-        discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True)#, internal_policy=continuousAgent.predict)
-        continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, combine_continuous_actions=True)#, internal_policy=discreteAgent.predict)
+        discreteActionMDP = mdp.getComponentMdp(
+            action_space_is_discrete=True
+        )  # , internal_policy=continuousAgent.predict)
+        continuousActionMDP = mdp.getComponentMdp(
+            action_space_is_discrete=False, combine_continuous_actions=True
+        )  # , internal_policy=discreteAgent.predict)
         assert alg_params["discrete_learning_rate"] is not None
+
         def get_on_policy_params(alg_type: str):
             return {
                 "policy": "MlpPolicy",
-                "env": {"discrete": discreteActionMDP, "continuous": continuousActionMDP}[alg_type],
+                "env": {
+                    "discrete": discreteActionMDP,
+                    "continuous": continuousActionMDP,
+                }[alg_type],
                 "verbose": 1,
                 "seed": seed,
-                "tensorboard_log": {"discrete": log_dir_discrete, "continuous": log_dir_continuous}[alg_type],
+                "tensorboard_log": {
+                    "discrete": log_dir_discrete,
+                    "continuous": log_dir_continuous,
+                }[alg_type],
                 "learning_rate": alg_params[f"{alg_type}_learning_rate"],
-                "n_steps": alg_params["on_policy_params"]["n_steps"]
+                "n_steps": alg_params["on_policy_params"]["n_steps"],
             }
+
         def get_off_policy_params(alg_type: str):
             return {
                 "policy": "MlpPolicy",
-                "env": {"discrete": discreteActionMDP, "continuous": continuousActionMDP}[alg_type],
+                "env": {
+                    "discrete": discreteActionMDP,
+                    "continuous": continuousActionMDP,
+                }[alg_type],
                 "verbose": 1,
                 "seed": seed,
-                "tensorboard_log": {"discrete": log_dir_discrete, "continuous": log_dir_continuous}[alg_type],
-                "learning_rate": alg_params[f"{alg_type}_learning_rate"]
+                "tensorboard_log": {
+                    "discrete": log_dir_discrete,
+                    "continuous": log_dir_continuous,
+                }[alg_type],
+                "learning_rate": alg_params[f"{alg_type}_learning_rate"],
             }
+
         discreteAgent = {
             # On Policy
             "A2C": A2C(**get_on_policy_params("discrete")),
@@ -122,17 +179,37 @@ def _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg, logging_inf
         continuousAgent.set_logger(sb3_logger_continuous)
         discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
         continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
-        agent = HybridPolicy(discreteAgent=discreteAgent, continuousAgent=continuousAgent,
-            name=f"{discreteAlg}-{continuousAlg}", env_name=env_name, seed=seed)
+        agent = HybridPolicy(
+            discreteAgent=discreteAgent,
+            continuousAgent=continuousAgent,
+            name=f"{discreteAlg}-{continuousAlg}",
+            env_name=env_name,
+            seed=seed,
+        )
     return agent
 
 
-def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=None,
-    continuousOnly=None, max_steps=None, learning_steps=0, cycles=0, seeds=[1],
-    use_tensorboard=False, write_csv=True, write_stdout=False, origin_log_dir=None,
-    evaluation_interval=1, eval_episodes=15, alg_params={}):
-    '''Collect data by training a specified HybridPolicy on a given environment
-    via conversion.'''
+def runConverter(
+    discreteAlg="",
+    continuousAlg="",
+    env_name="",
+    discrete_only=None,
+    continuousOnly=None,
+    max_steps=None,
+    learning_steps=0,
+    cycles=0,
+    seeds=[1],
+    use_tensorboard=False,
+    write_csv=True,
+    write_stdout=False,
+    origin_log_dir=None,
+    evaluation_interval=1,
+    eval_episodes=15,
+    alg_params={},
+):
+    """Collect data by training a specified HybridPolicy on a given environment
+    via conversion."""
+    warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
     learning_steps = learning_steps * 2  # Due to converter
     assert not (discrete_only and continuousOnly)
     assert learning_steps > 0 and cycles > 0
@@ -143,6 +220,7 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         ROLLOUT_LEN = None
     mean_rewards = []
     for seed in seeds:
+        print(f"[INFO] Seeds left: {len(seeds) - seeds.index(seed)}")
         mdp = _getMDP(env_name, seed)
         eval_mdp = _getMDP(env_name, seed+1)
         logging_info = _getLoggingSetup(origin_log_dir, seed, env_name,
@@ -151,13 +229,23 @@ def runConverter(discreteAlg="", continuousAlg="", env_name="", discrete_only=No
         agent = _getAgent(discrete_only, continuousOnly, mdp, seed, discreteAlg,
             logging_info, continuousAlg, env_name, alg_params)
         callbacks = CallbackList([DataCallback()])
-        learn_output = agent.learn(learning_steps, cycles=cycles, callback=callbacks,
-            progress_bar=True, evaluation_interval=evaluation_interval,
-            eval_mdp=eval_mdp, eval_episodes=eval_episodes,
-            rollout_length=ROLLOUT_LEN, log_dir=origin_log_dir, update_ratio=alg_params['update_ratio'])
+        learn_output = agent.learn(
+            learning_steps,
+            cycles=cycles,
+            callback=callbacks,
+            progress_bar=not _DISABLE_PROGRESS_BAR,
+            evaluation_interval=evaluation_interval,
+            eval_mdp=eval_mdp,
+            eval_episodes=eval_episodes,
+            rollout_length=ROLLOUT_LEN,
+            log_dir=origin_log_dir,
+            update_ratio=alg_params["update_ratio"],
+        )
         mean_rewards.append(learn_output)
     mean = np.mean(mean_rewards)
-    sem = np.std(mean_rewards, ddof=1) / np.sqrt(len(mean_rewards))  # Standard Error of the Mean
+    sem = np.std(mean_rewards, ddof=1) / np.sqrt(
+        len(mean_rewards)
+    )  # Standard Error of the Mean
     return (mean, sem)
 
 

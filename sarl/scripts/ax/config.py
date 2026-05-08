@@ -35,8 +35,9 @@ ON_POLICY_PARAMS = {"n_steps": 100}
 BOUNDS_LR = (1e-6, 1e-2)
 BOUNDS_UPDATE_RATIO = (0.01, 0.99)
 
-LS_DEBUG = 1000  # Learning steps
-CYC_DEBUG = 2  # Cycles
+LS_DEBUG = 100  # Learning steps
+CYC_DEBUG = 1  # Cycles
+NUM_SEEDS_DEBUG = 2
 LS_PROPER = 30_000  # Change from 80_000
 CYC_PROPER = 6  # Change from 16
 
@@ -54,15 +55,15 @@ ROTATE_SEEDS_PER_TRIALS = (
 )
 
 # Quick test settings for local development
-LS_TEST = 10_000
-CYC_TEST = 2
-NUM_SEEDS_TEST = 3
-MAX_TRIALS_TEST = 32
+LS_TEST = LS_DEBUG
+CYC_TEST = CYC_DEBUG
+NUM_SEEDS_TEST = NUM_SEEDS_DEBUG
+MAX_TRIALS_TEST = 2
 PARALLEL_LIMIT_TEST = 1  # Allows more parallelism for quick local test runs
 
 ENVS = ["platform"]
-DISCRETE_ALGS = ["dqn"]
-CONTINUOUS_ALGS = ["sac"]
+DISCRETE_ALGS = ["ppo"] #["dqn"]
+CONTINUOUS_ALGS = ["ppo"] #["sac"]
 
 LR_LOW = 1e-4
 LR_MED = 3.16e-3

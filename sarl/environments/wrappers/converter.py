@@ -106,7 +106,7 @@ class HybridPolicy:
             if eval_bool and (cycle + 1) % evaluation_interval == 0:
                 evaluation_returns = self._evaluate(eval_mdp, evaluation_returns, cycle, eval_episodes, log_dir)
                 final_mean_return = evaluation_returns[-1]  # List of tuples (training_timesteps, mean_eval_episode_return)
-        return final_mean_return[1]  # INFO: Fix was to report the mean return instead of the training timesteps by accident
+        return final_mean_return[1]
         # return np.mean([ret[1] for ret in evaluation_returns])  #  WARN: Means are across all cycles instead of final cycle
 
 

@@ -6,7 +6,7 @@ Generates a heatmap of mean rewards across discrete and continuous learning rate
 
 Usage:
     python _visualize_grid.py
-    python _visualize_grid.py runs/grid/proper/complete/2026-03-17_03-50/grid_results.csv
+    python _visualize_grid.py runs/grid/proper/2026-03-17_03-50/grid_results.csv
 """
 
 import argparse

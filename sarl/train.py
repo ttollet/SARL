@@ -17,110 +17,106 @@ import warnings
 import logging
 from stable_baselines3.common.utils import get_device
 
-# For cleaner output, mutes unnecessary warnings
+# Suppress unnecessary warnings for cleaner output
 warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
+warnings.filterwarnings("ignore", message=".*pkg_resources.*")
+warnings.filterwarnings("ignore", message=".*version_base.*")
+
+# Track if device has been logged (show only once)
+_device_logged = False
 
 
 @hydra.main(version_base=None, config_path="config", config_name="sarl")
 def main(job_config: DictConfig):
     # Identify relevant script
-    from sarl.snippets.pdqn_use import pdqn_platform, pdqn_goal  # TODO: Refactor to avoid script-per-combination
+    from sarl.snippets.pdqn_use import (
+        pdqn_platform,
+        pdqn_goal,
+    )  # TODO: Refactor to avoid script-per-combination
     from sarl.snippets.qpamdp_use import qpamdp_platform, qpamdp_goal
-    from sarl.snippets.converter_use import runConverter  # TODO: Use this via the partial method
-    from sarl.snippets.converter_use import ppo_ppo_platform, a2c_ppo_platform, dqn_ppo_platform, ppo_ppo_goal, a2c_ppo_goal, dqn_ppo_goal
-    from sarl.snippets.converter_use import ppo_a2c_platform, a2c_a2c_platform, dqn_a2c_platform, ppo_a2c_goal, a2c_a2c_goal, dqn_a2c_goal
-    from sarl.snippets.converter_use import ppo_ddpg_platform, a2c_ddpg_platform, dqn_ddpg_platform, ppo_ddpg_goal, a2c_ddpg_goal, dqn_ddpg_goal
-    from sarl.snippets.converter_use import ppo_sac_platform, a2c_sac_platform, dqn_sac_platform, ppo_sac_goal, a2c_sac_goal, dqn_sac_goal
-    from sarl.snippets.converter_use import ppo_td3_platform, a2c_td3_platform, dqn_td3_platform, ppo_td3_goal, a2c_td3_goal, dqn_td3_goal
+    from sarl.snippets.converter_use import (
+        runConverter,
+    )  # TODO: Use this via the partial method
+    from sarl.snippets.converter_use import (
+        ppo_ppo_platform,
+        a2c_ppo_platform,
+        dqn_ppo_platform,
+        ppo_ppo_goal,
+        a2c_ppo_goal,
+        dqn_ppo_goal,
+    )
+    from sarl.snippets.converter_use import (
+        ppo_a2c_platform,
+        a2c_a2c_platform,
+        dqn_a2c_platform,
+        ppo_a2c_goal,
+        a2c_a2c_goal,
+        dqn_a2c_goal,
+    )
+    from sarl.snippets.converter_use import (
+        ppo_ddpg_platform,
+        a2c_ddpg_platform,
+        dqn_ddpg_platform,
+        ppo_ddpg_goal,
+        a2c_ddpg_goal,
+        dqn_ddpg_goal,
+    )
+    from sarl.snippets.converter_use import (
+        ppo_sac_platform,
+        a2c_sac_platform,
+        dqn_sac_platform,
+        ppo_sac_goal,
+        a2c_sac_goal,
+        dqn_sac_goal,
+    )
+    from sarl.snippets.converter_use import (
+        ppo_td3_platform,
+        a2c_td3_platform,
+        dqn_td3_platform,
+        ppo_td3_goal,
+        a2c_td3_goal,
+        dqn_td3_goal,
+    )
+
     try:
         chosen_script = {  # (Dict mapping config terms to functions)
-            "qpamdp": {
-                "platform": qpamdp_platform,
-                "goal": qpamdp_goal
-            },
-
-            "pdqn": {
-                "platform": pdqn_platform,
-                "goal": pdqn_goal
-            },
-
-            "ppo-ppo": {
-                "platform": ppo_ppo_platform,
-                "goal": ppo_ppo_goal
-            },
-            "a2c-ppo": {
-                "platform": a2c_ppo_platform,
-                "goal": a2c_ppo_goal
-            },
-            "dqn-ppo": {
-                "platform": dqn_ppo_platform,
-                "goal": dqn_ppo_goal
-            },
-
-            "ppo-a2c": {
-                "platform": ppo_a2c_platform,
-                "goal": ppo_a2c_goal
-            },
-            "a2c-a2c": {
-                "platform": a2c_a2c_platform,
-                "goal": a2c_a2c_goal
-            },
-            "dqn-a2c": {
-                "platform": dqn_a2c_platform,
-                "goal": dqn_a2c_goal
-            },
-
-            "ppo-ddpg": {
-                "platform": ppo_ddpg_platform,
-                "goal": ppo_ddpg_goal
-            },
-            "a2c-ddpg": {
-                "platform": a2c_ddpg_platform,
-                "goal": a2c_ddpg_goal
-            },
-            "dqn-ddpg": {
-                "platform": dqn_ddpg_platform,
-                "goal": dqn_ddpg_goal
-            },
-
-            "ppo-sac": {
-                "platform": ppo_sac_platform,
-                "goal": ppo_sac_goal
-            },
-            "a2c-sac": {
-                "platform": a2c_sac_platform,
-                "goal": a2c_sac_goal
-            },
-            "dqn-sac": {
-                "platform": dqn_sac_platform,
-                "goal": dqn_sac_goal
-            },
-
-            "ppo-td3": {
-                "platform": ppo_td3_platform,
-                "goal": ppo_td3_goal
-            },
-            "a2c-td3": {
-                "platform": a2c_td3_platform,
-                "goal": a2c_td3_goal
-            },
-            "dqn-td3": {
-                "platform": dqn_td3_platform,
-                "goal": dqn_td3_goal
-            },
+            "qpamdp": {"platform": qpamdp_platform, "goal": qpamdp_goal},
+            "pdqn": {"platform": pdqn_platform, "goal": pdqn_goal},
+            "ppo-ppo": {"platform": ppo_ppo_platform, "goal": ppo_ppo_goal},
+            "a2c-ppo": {"platform": a2c_ppo_platform, "goal": a2c_ppo_goal},
+            "dqn-ppo": {"platform": dqn_ppo_platform, "goal": dqn_ppo_goal},
+            "ppo-a2c": {"platform": ppo_a2c_platform, "goal": ppo_a2c_goal},
+            "a2c-a2c": {"platform": a2c_a2c_platform, "goal": a2c_a2c_goal},
+            "dqn-a2c": {"platform": dqn_a2c_platform, "goal": dqn_a2c_goal},
+            "ppo-ddpg": {"platform": ppo_ddpg_platform, "goal": ppo_ddpg_goal},
+            "a2c-ddpg": {"platform": a2c_ddpg_platform, "goal": a2c_ddpg_goal},
+            "dqn-ddpg": {"platform": dqn_ddpg_platform, "goal": dqn_ddpg_goal},
+            "ppo-sac": {"platform": ppo_sac_platform, "goal": ppo_sac_goal},
+            "a2c-sac": {"platform": a2c_sac_platform, "goal": a2c_sac_goal},
+            "dqn-sac": {"platform": dqn_sac_platform, "goal": dqn_sac_goal},
+            "ppo-td3": {"platform": ppo_td3_platform, "goal": ppo_td3_goal},
+            "a2c-td3": {"platform": a2c_td3_platform, "goal": a2c_td3_goal},
+            "dqn-td3": {"platform": dqn_td3_platform, "goal": dqn_td3_goal},
         }[job_config["algorithm"]][job_config["environment"]]
     except:
         raise NotImplementedError
 
     # enable useful log messages, saved to /outputs
+    global _device_logged
     hydra_config = HydraConfig.get()
     logger = logging.getLogger(hydra_config.job.name)
     logger.setLevel(getattr(logging, job_config.get("verbose", "info").upper()))
     logger.info("Log started.")
-    logger.info(f"SB3 get_device() output:{get_device()}")
-    logger.info(f'Running {job_config["algorithm"]} on {job_config["environment"]} with seeds: {job_config["parameters"]["seeds"]}')
+    if not _device_logged:
+        logger.info(f"SB3 get_device() output:{get_device()}")
+        _device_logged = True
+    logger.info(
+        f"Running {job_config['algorithm']} on {job_config['environment']} with seeds: {job_config['parameters']['seeds']}"
+    )
 
-    output_dir = HydraConfig.get().runtime.output_dir  # See /.hydra in relevant folder for config
+    output_dir = (
+        HydraConfig.get().runtime.output_dir
+    )  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
 
     # def toy_func_to_optimise():  # TODO: Replace with mean & std reward
