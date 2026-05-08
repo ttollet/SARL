@@ -38,6 +38,9 @@ from config import (
     BASE_SEED,
     NUM_SEEDS,
     ROTATE_SEEDS_PER_TRIALS,
+    SINGLE_PARAM_MODE,
+    FIXED_CONTINUOUS_LR,
+    FIXED_UPDATE_RATIO,
 )
 from training import run_training
 
@@ -222,12 +225,16 @@ def optimise(
 
             client = Client()
             alg1, alg2 = pair.split("-")
-            params = (
-                get_params_by_alg("discrete")[alg1]
-                + get_params_by_alg("continuous")[alg2]
-            )
-            params = params + [update_ratio_param]
-            client.configure_experiment(name="sarl_opt", parameters=params)
+            if SINGLE_PARAM_MODE:
+                params = get_params_by_alg("discrete")[alg1]
+                client.configure_experiment(name="sarl_opt", parameters=params)
+            else:
+                params = (
+                    get_params_by_alg("discrete")[alg1]
+                    + get_params_by_alg("continuous")[alg2]
+                )
+                params = params + [update_ratio_param]
+                client.configure_experiment(name="sarl_opt", parameters=params)
             client.configure_optimization(objective="mean_reward")
             return client
 
@@ -247,8 +254,12 @@ def optimise(
                 discrete_lr, continuous_lr, update_ratio = param_set
             else:
                 discrete_lr = params["discrete_learning_rate"]
-                continuous_lr = params["continuous_learning_rate"]
-                update_ratio = params["update_ratio"]
+                if SINGLE_PARAM_MODE:
+                    continuous_lr = FIXED_CONTINUOUS_LR
+                    update_ratio = FIXED_UPDATE_RATIO
+                else:
+                    continuous_lr = params["continuous_learning_rate"]
+                    update_ratio = params["update_ratio"]
 
             # Compute per-trial seeds if rotation is enabled
             if ROTATE_SEEDS_PER_TRIALS:

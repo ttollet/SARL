@@ -39,6 +39,7 @@ from config import (
     CYC_TEST,
     NUM_SEEDS_TEST,
     MAX_TRIALS_TEST,
+    SINGLE_PARAM_MODE,
     PARALLEL_LIMIT,
     PARALLEL_LIMIT_TEST,
 )
