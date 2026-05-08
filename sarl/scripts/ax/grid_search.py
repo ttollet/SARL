@@ -158,8 +158,8 @@ def save_grid_timing_summary(total_duration, trial_durations, num_trials, num_se
     }
 
     timing_df = pd.DataFrame([timing_data])
-    timing_df.to_csv(f"{run_dir}/timing_summary.csv", index=False)
-    print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
+    timing_df.to_csv(f"{output_dir}/timing_summary.csv", index=False)
+    print(f"[INFO] Saved timing summary to {output_dir}/timing_summary.csv")
 
 
 def run_grid_search(
@@ -169,6 +169,7 @@ def run_grid_search(
     seeds=None,
     wandb_enabled=False,
     wandb_project="sarl-ax",
+    output_dir=None,
 ):
     """Run grid search with ALL seeds as separate SLURM jobs (full parallelism)."""
     global _wandb_enabled
@@ -178,6 +179,8 @@ def run_grid_search(
         learning_steps = 80_000
     if cycles is None:
         cycles = 16
+    if output_dir is None:
+        output_dir = run_dir
 
     run_start_time = time.time()
     all_results = []
@@ -200,7 +203,7 @@ def run_grid_search(
     elif wandb_enabled and not WANDB_AVAILABLE:
         print("[WARN] --wandb specified but wandb not installed")
 
-    executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
+    executor = AutoExecutor(folder=f"{output_dir}/submitit", cluster=cluster)
     executor.update_parameters(timeout_min=60)
     executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
 
@@ -301,7 +304,7 @@ def run_grid_search(
 
             # Update WIP CSV after each seed completes (parallel mode)
             results_df = pd.DataFrame(all_results)
-            results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+            results_df.to_csv(f"{output_dir}/wip-grid-results.csv", index=False)
 
             if wandb_enabled and WANDB_AVAILABLE:
                 log_to_wandb(
@@ -395,14 +398,14 @@ def run_grid_search(
 
             # Write WIP CSV after each config completes
             results_df = pd.DataFrame(all_results)
-            results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+            results_df.to_csv(f"{output_dir}/wip-grid-results.csv", index=False)
             print(
                 f"[INFO] Trial {trial_index} complete: mean_reward = {mean_reward:.4f} ± {sem:.4f} ({format_duration(trial_duration)})"
             )
 
     # Save aggregated results
     results_df = pd.DataFrame(all_results)
-    results_df.to_csv(f"{run_dir}/wip-grid-results.csv", index=False)
+    results_df.to_csv(f"{output_dir}/wip-grid-results.csv", index=False)
     results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
     print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
 

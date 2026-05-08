@@ -21,6 +21,8 @@ import numpy as np
 import pandas as pd
 from submitit import AutoExecutor, LocalJob, DebugJob
 
+from ax.plot.slice import plot_slice
+
 from config import (
     pairs,
     ENVS,
@@ -58,6 +60,12 @@ def format_duration(seconds):
         return f"{secs}s"
 
 
+def format_duration_minutes(seconds):
+    """Format seconds as minutes with decimal precision."""
+    minutes = seconds / 60.0
+    return f"{minutes:.2f} min"
+
+
 def track_best_score(mean_reward, trial_index, params, duration=None):
     """Track best observed score over time."""
     global best_so_far
@@ -75,15 +83,18 @@ def track_best_score(mean_reward, trial_index, params, duration=None):
     best_scores_history.append(entry)
 
 
-def save_client(client, wip=False):
-    Path(run_dir).mkdir(parents=True, exist_ok=True)
+def save_client(client, wip=False, output_dir=None):
+    if output_dir is None:
+        output_dir = run_dir
+    print(f"[INFO] Saving client state to {output_dir}")
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     if wip:
         df = client.summarize()
-        df.to_csv(f"{run_dir}/wip-client.csv", index=False)
+        df.to_csv(f"{output_dir}/wip-client.csv", index=False)
     else:
         df = client.summarize()
-        df.to_csv(f"{run_dir}/client.csv", index=False)
-        client.save_to_json_file(f"{run_dir}/client.json")
+        df.to_csv(f"{output_dir}/client.csv", index=False)
+        client.save_to_json_file(f"{output_dir}/client.json")
     return True
 
 
@@ -129,7 +140,7 @@ def plot_best_scores(output_dir=None):
     print(f"[INFO] Saved best scores history to {output_dir}/best_scores_history.csv")
 
 
-def save_timing_summary(total_duration, max_trials):
+def save_timing_summary(total_duration, max_trials, output_dir):
     """Save timing summary to CSV."""
     if not best_scores_history:
         return
@@ -166,8 +177,8 @@ def save_timing_summary(total_duration, max_trials):
     }
 
     timing_df = pd.DataFrame([timing_data])
-    timing_df.to_csv(f"{run_dir}/timing_summary.csv", index=False)
-    print(f"[INFO] Saved timing summary to {run_dir}/timing_summary.csv")
+    timing_df.to_csv(f"{output_dir}/timing_summary.csv", index=False)
+    print(f"[INFO] Saved timing summary to {output_dir}/timing_summary.csv")
 
 
 def optimise(
@@ -177,6 +188,7 @@ def optimise(
     cycles=None,
     seeds=None,
     parallel_limit=None,
+    output_dir=None,
 ):
     """
     Bayesian optimization using Ax with qLogNoisyExpectedImprovement acquisition function.
@@ -194,6 +206,8 @@ def optimise(
         cycles = 16
     if parallel_limit is None:
         parallel_limit = PARALLEL_LIMIT
+    if output_dir is None:
+        output_dir = run_dir
 
     width = os.get_terminal_size().columns
     print(f"[INFO] BO run started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -217,7 +231,7 @@ def optimise(
         client = get_client()
 
         def get_executor():
-            executor = AutoExecutor(folder=f"{run_dir}/submitit", cluster=cluster)
+            executor = AutoExecutor(folder=f"{output_dir}/submitit", cluster=cluster)
             executor.update_parameters(timeout_min=180)
             executor.update_parameters(cpus_per_task=CPU_CORES_PER_TASK)
             return executor
@@ -286,25 +300,25 @@ def optimise(
                             duration = time.time() - start_time
                             print(f"\n[JOB RESULT]: {result}")
                             print(
-                                f"[TIMING] Trial {trial_index} completed in {format_duration(duration)}"
+                                f"[TIMING] Trial {trial_index} completed in {format_duration(duration)} ({format_duration_minutes(duration)})"
                             )
                             print("-" * width)
                             track_best_score(mean_reward, trial_index, params, duration)
                             history_df = pd.DataFrame(best_scores_history)
                             history_df.to_csv(
-                                f"{run_dir}/best_scores_history.csv", index=False
+                                f"{output_dir}/best_scores_history.csv", index=False
                             )
                             _ = client.complete_trial(
                                 trial_index=trial_index, raw_data=result
                             )
-                            save_client(client, wip=True)
+                            save_client(client, wip=True, output_dir=output_dir)
                             _ = jobs.remove((job, trial_index, params, start_time))
 
                 run_trials()
                 learn_from_any_previous_trials()
 
             best = client.get_best_parameterization()
-            save_client(client)
+            save_client(client, output_dir=output_dir)
             return {"best": best}
 
         outcome = run_parallel_exps()
@@ -316,8 +330,9 @@ def optimise(
         print(
             f"\n[TIMING] BO run completed at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        print(f"[TIMING] Total duration: {format_duration(total_duration)}")
+        print(f"[TIMING] Total duration: {format_duration(total_duration)} ({format_duration_minutes(total_duration)})")
         print("-" * width)
 
-        save_timing_summary(total_duration, max_trials)
+        save_timing_summary(total_duration, max_trials, output_dir)
+        save_client(client, wip=False)  # Save final client state
         print("-" * width)
