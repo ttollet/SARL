@@ -137,6 +137,7 @@ if __name__ == "__main__":
             cycles=cycles,
             seeds=seeds,
             wandb_enabled=args.wandb,
+            output_dir=run_dir,
         )
         mark_run_complete(run_dir)
     else:
@@ -146,6 +147,7 @@ if __name__ == "__main__":
             cycles=cycles,
             seeds=seeds,
             parallel_limit=parallel_limit,
+            output_dir=run_dir,
         )
         # Plot best scores after BO completes
         plot_best_scores(run_dir)

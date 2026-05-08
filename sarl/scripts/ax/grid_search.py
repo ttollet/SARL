@@ -22,8 +22,8 @@ from config import (
     GRID_PARAMS,
     SEEDS,
     LOCAL_DEBUG_MODE,
+    get_run_path,
     CPU_CORES_PER_TASK,
-    run_dir,
     cluster,
     BASE_SEED,
     NUM_SEEDS,
@@ -98,6 +98,7 @@ def run_single_seed(grid_params, trial_index, seed, learning_steps=None, cycles=
         update_ratio,
         [seed],
         job_name,
+        output_dir,
         run_subdir,
         learning_steps=learning_steps,
         cycles=cycles,
@@ -125,6 +126,7 @@ def run_trial_from_grid(
         update_ratio,
         seeds,
         job_name,
+        output_dir,
         run_subdir,
         learning_steps=learning_steps,
         cycles=cycles,
@@ -180,7 +182,7 @@ def run_grid_search(
     if cycles is None:
         cycles = 16
     if output_dir is None:
-        output_dir = run_dir
+        output_dir = get_run_path("grid", "proper", "incomplete")
 
     run_start_time = time.time()
     all_results = []
@@ -406,14 +408,13 @@ def run_grid_search(
     # Save aggregated results
     results_df = pd.DataFrame(all_results)
     results_df.to_csv(f"{output_dir}/wip-grid-results.csv", index=False)
-    results_df.to_csv(f"{run_dir}/grid_results.csv", index=False)
-    print(f"[INFO] Saved {len(results_df)} results to {run_dir}/grid_results.csv")
+    results_df.to_csv(f"{output_dir}/grid_results.csv", index=False)
+    print(f"[INFO] Saved {len(results_df)} results to {output_dir}/grid_results.csv")
 
-    # Save per-seed results
     if all_seed_results:
         seed_df = pd.DataFrame(all_seed_results)
-        seed_df.to_csv(f"{run_dir}/seed_results.csv", index=False)
-        print(f"[INFO] Saved {len(seed_df)} seed results to {run_dir}/seed_results.csv")
+        seed_df.to_csv(f"{output_dir}/seed_results.csv", index=False)
+        print(f"[INFO] Saved {len(seed_df)} seed results to {output_dir}/seed_results.csv")
 
     # Save timing summary
     total_duration = time.time() - run_start_time

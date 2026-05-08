@@ -32,8 +32,8 @@ from config import (
     PARALLEL_LIMIT_TEST,
     update_ratio_param,
     get_params_by_alg,
+    get_run_path,
     CPU_CORES_PER_TASK,
-    run_dir,
     cluster,
     BASE_SEED,
     NUM_SEEDS,
@@ -85,7 +85,7 @@ def track_best_score(mean_reward, trial_index, params, duration=None):
 
 def save_client(client, wip=False, output_dir=None):
     if output_dir is None:
-        output_dir = run_dir
+        output_dir = get_run_path("bayesian", "proper", "incomplete")
     print(f"[INFO] Saving client state to {output_dir}")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     if wip:
@@ -101,7 +101,7 @@ def save_client(client, wip=False, output_dir=None):
 def plot_best_scores(output_dir=None):
     """Plot best observed scores from BO run."""
     if output_dir is None:
-        output_dir = run_dir
+        output_dir = get_run_path("bayesian", "proper", "incomplete")
 
     if not best_scores_history:
         print("[WARN] No best scores history to plot")
@@ -207,9 +207,12 @@ def optimise(
     if parallel_limit is None:
         parallel_limit = PARALLEL_LIMIT
     if output_dir is None:
-        output_dir = run_dir
+        output_dir = get_run_path("bayesian", "proper", "incomplete")
 
-    width = os.get_terminal_size().columns
+    try:
+        width = os.get_terminal_size().columns
+    except OSError:
+        width = 80
     print(f"[INFO] BO run started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
     for pair, env in list(product(pairs, ENVS)):
@@ -265,6 +268,7 @@ def optimise(
                 update_ratio,
                 trial_seeds,
                 job_name,
+                output_dir,
                 run_subdir=f"trial_{trial_index}",
                 learning_steps=learning_steps,
                 cycles=cycles,
@@ -334,5 +338,5 @@ def optimise(
         print("-" * width)
 
         save_timing_summary(total_duration, max_trials, output_dir)
-        save_client(client, wip=False)  # Save final client state
+        save_client(client, wip=False, output_dir=output_dir)  # Save final client state
         print("-" * width)

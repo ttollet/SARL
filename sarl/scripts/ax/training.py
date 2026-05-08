@@ -21,7 +21,6 @@ from config import (
     CYCLES,
     ON_POLICY_PARAMS,
     HYDRA_CONFIG_PATH,
-    run_dir,
 )
 
 
@@ -31,6 +30,7 @@ def build_config(
     update_ratio,
     seeds,
     job_name,
+    run_dir,
     run_subdir="",
     learning_steps=None,
     cycles=None,
@@ -70,6 +70,7 @@ def run_training(
     update_ratio,
     seeds,
     job_name,
+    run_dir,
     run_subdir="",
     learning_steps=None,
     cycles=None,
@@ -81,6 +82,7 @@ def run_training(
         update_ratio,
         seeds,
         job_name,
+        run_dir,
         run_subdir,
         learning_steps=learning_steps,
         cycles=cycles,
