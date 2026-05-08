@@ -29,6 +29,7 @@ dependencies = [
     "seaborn>=0.13.2,<1",
     "ax-platform>=1.1.2,<2",
     "submitit>=1.5.3,<2",
+    "wandb>=0.25.1",
 ]
 
 [project.optional-dependencies]
