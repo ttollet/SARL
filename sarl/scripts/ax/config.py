@@ -17,6 +17,7 @@ from ax.api.configs import RangeParameterConfig
 
 ROOT_STR = "."
 LOCAL_DEBUG_MODE = True
+CLIENT_SAVE_INTERVAL = 5  # Number of trials between client saves
 
 
 def get_run_path(run_type: str, run_scale: str, run_state: str = "incomplete") -> str:

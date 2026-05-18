@@ -41,6 +41,7 @@ from config import (
     SINGLE_PARAM_MODE,
     FIXED_CONTINUOUS_LR,
     FIXED_UPDATE_RATIO,
+    CLIENT_SAVE_INTERVAL,
 )
 from training import run_training
 
@@ -94,7 +95,9 @@ def save_client(client, wip=False, output_dir=None):
     if wip:
         df = client.summarize()
         df.to_csv(f"{output_dir}/wip-client.csv", index=False)
-        client.save_to_json_file(f"{output_dir}/wip-client.json")
+        num_trials = df.count()[0]
+        if num_trials % CLIENT_SAVE_INTERVAL == 0:
+            client.save_to_json_file(f"{output_dir}/wip-client-{num_trials}.json")
     else:
         df = client.summarize()
         df.to_csv(f"{output_dir}/client.csv", index=False)
