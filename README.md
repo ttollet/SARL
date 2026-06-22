@@ -63,15 +63,6 @@ A parameterized action-space, requires an agent to select from a discrete set of
 * Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac) and select "Dev Containers: Reopen in Container"
 * The environment will be automatically set up and ready to use
 
-### Option 3: Using devenv
-
-* Install [devenv](https://devenv.sh/getting-started/)
-* Clone this repository `git clone https://github.com/ttollet/SARL.git`
-* Change directory `cd SARL`
-* Run `devenv up` to set up the development environment
-* Use `devenv shell` to activate the environment
-* Run tests and commands within the devenv shell
-
 ## Examples
 ```
 python3 sarl/train.py algorithm=ppo-ppo environment=platform hydra.job.name=ppo-ppo-platform parameters.learning_steps=540000 parameters.seeds=[1] parameters.cycles=600
