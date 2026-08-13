@@ -95,7 +95,7 @@ def save_client(client, wip=False, output_dir=None):
     if wip:
         df = client.summarize()
         df.to_csv(f"{output_dir}/wip-client.csv", index=False)
-        num_trials = df.count()[0]
+        num_trials = len(df)  # df.count()[0]
         if num_trials % CLIENT_SAVE_INTERVAL == 0:
             client.save_to_json_file(f"{output_dir}/wip-client-{num_trials}.json")
     else:

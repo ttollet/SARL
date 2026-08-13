@@ -80,17 +80,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Ax-driven hyperparameter optimization"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--debug",
         action="store_true",
         help="Use debug/test settings (few seeds, short training)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--grid",
         action="store_true",
         help="Use grid search (default: Bayesian optimization)",
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--wandb",
         action="store_true",
         help="Enable wandb logging",
