@@ -96,95 +96,78 @@ def _getAgent(
         log_dir_discrete,
         log_dir_continuous,
     ) = logging_info
-    if discrete_only:
-        assert False
-        # def continuousPolicy(x): return mdp.action_parameter_space.sample()
-        # discreteActionMDP = mdp.getComponentMdp(action_space_is_discrete=True, internal_policy=continuousPolicy)
-        # discreteAgent = {
-        #     "PPO": PPO("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
-        #     "A2C": A2C("MlpPolicy", discreteActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir)
-        # }[discreteAlg]
-        # discreteAgent.set_logger(sb3_logger_discrete)
-        # agent = HybridPolicy(discreteAgent=discreteAgent, continuousPolicy=continuousPolicy)
-    elif continuousOnly is False:
-        assert False
-        # def discretePolicy(x): return mdp.discrete_action_space.sample()
-        # continuousActionMDP = mdp.getComponentMdp(action_space_is_discrete=False, internal_policy=discretePolicy, combine_continuous_actions=True)
-        # continuousAgent = {
-        #     "PPO": PPO("MlpPolicy", continuousActionMDP, verbose=1, seed=seed, tensorboard_log=log_dir),
-        # }[continuousAlg]
-        # agent = HybridPolicy(discretePolicy=discretePolicy, continuousAgent=continuousAgent)
-        # continuousAgent.set_logger(sb3_logger_continuous)
-    else:
-        discreteActionMDP = mdp.getComponentMdp(
-            action_space_is_discrete=True
-        )  # , internal_policy=continuousAgent.predict)
-        continuousActionMDP = mdp.getComponentMdp(
-            action_space_is_discrete=False, combine_continuous_actions=True
-        )  # , internal_policy=discreteAgent.predict)
-        assert alg_params["discrete_learning_rate"] is not None
+    assert discrete_only is False
+    assert continuousOnly is False:
 
-        def get_on_policy_params(alg_type: str):
-            return {
-                "policy": "MlpPolicy",
-                "env": {
-                    "discrete": discreteActionMDP,
-                    "continuous": continuousActionMDP,
-                }[alg_type],
-                "verbose": 0,
-                "seed": seed,
-                "tensorboard_log": {
-                    "discrete": log_dir_discrete,
-                    "continuous": log_dir_continuous,
-                }[alg_type],
-                "learning_rate": alg_params[f"{alg_type}_learning_rate"],
-                "n_steps": alg_params["on_policy_params"]["n_steps"],
-            }
+    discreteActionMDP = mdp.getComponentMdp(
+        action_space_is_discrete=True
+    )  # , internal_policy=continuousAgent.predict)
+    continuousActionMDP = mdp.getComponentMdp(
+        action_space_is_discrete=False, combine_continuous_actions=True
+    )  # , internal_policy=discreteAgent.predict)
+    assert alg_params["discrete_learning_rate"] is not None
 
-        def get_off_policy_params(alg_type: str):
-            return {
-                "policy": "MlpPolicy",
-                "env": {
-                    "discrete": discreteActionMDP,
-                    "continuous": continuousActionMDP,
-                }[alg_type],
-                "verbose": 0,
-                "seed": seed,
-                "tensorboard_log": {
-                    "discrete": log_dir_discrete,
-                    "continuous": log_dir_continuous,
-                }[alg_type],
-                "learning_rate": alg_params[f"{alg_type}_learning_rate"],
-            }
-
-        discreteAgent = {
-            # On Policy
-            "A2C": A2C(**get_on_policy_params("discrete")),
-            "PPO": PPO(**get_on_policy_params("discrete")),
-            # Off Policy
-            "DQN": DQN(**get_off_policy_params("discrete")),
+    def get_on_policy_params(alg_type: str):
+        return {
+            "policy": "MlpPolicy",
+            "env": {
+                "discrete": discreteActionMDP,
+                "continuous": continuousActionMDP,
+            }[alg_type],
+            "verbose": 0,
+            "seed": seed,
+            "tensorboard_log": {
+                "discrete": log_dir_discrete,
+                "continuous": log_dir_continuous,
+            }[alg_type],
+            "learning_rate": alg_params[f"{alg_type}_learning_rate"],
+            "n_steps": alg_params["on_policy_params"]["n_steps"],
         }
-        discreteAgent = discreteAgent[discreteAlg]
-        discreteAgent.set_logger(sb3_logger_discrete)
-        continuousAgent = {
-            # On Policy
-            "A2C": A2C(**get_on_policy_params("continuous")),
-            "PPO": PPO(**get_on_policy_params("continuous")),
-            # Off Policy
-            "DDPG": DDPG(**get_off_policy_params("continuous")),
-            "SAC": SAC(**get_off_policy_params("continuous")),
-            "TD3": TD3(**get_off_policy_params("continuous")),
-        }[continuousAlg]
-        continuousAgent.set_logger(sb3_logger_continuous)
-        discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
-        continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
-        agent = HybridPolicy(
-            discreteAgent=discreteAgent,
-            continuousAgent=continuousAgent,
-            name=f"{discreteAlg}-{continuousAlg}",
-            env_name=env_name,
-            seed=seed,
-        )
+
+    def get_off_policy_params(alg_type: str):
+        return {
+            "policy": "MlpPolicy",
+            "env": {
+                "discrete": discreteActionMDP,
+                "continuous": continuousActionMDP,
+            }[alg_type],
+            "verbose": 0,
+            "seed": seed,
+            "tensorboard_log": {
+                "discrete": log_dir_discrete,
+                "continuous": log_dir_continuous,
+            }[alg_type],
+            "learning_rate": alg_params[f"{alg_type}_learning_rate"],
+        }
+
+    discreteAgent = {
+        # On Policy
+        "A2C": A2C(**get_on_policy_params("discrete")),
+        "PPO": PPO(**get_on_policy_params("discrete")),
+        # Off Policy
+        "DQN": DQN(**get_off_policy_params("discrete")),
+    }
+    discreteAgent = discreteAgent[discreteAlg]
+    discreteAgent.set_logger(sb3_logger_discrete)
+    continuousAgent = {
+        # On Policy
+        "A2C": A2C(**get_on_policy_params("continuous")),
+        "PPO": PPO(**get_on_policy_params("continuous")),
+        # Off Policy
+        "DDPG": DDPG(**get_off_policy_params("continuous")),
+        "SAC": SAC(**get_off_policy_params("continuous")),
+        "TD3": TD3(**get_off_policy_params("continuous")),
+    }[continuousAlg]
+    continuousAgent.set_logger(sb3_logger_continuous)
+    discreteActionMDP.internal_policy = lambda obs: continuousAgent.predict(obs)[0]
+    continuousActionMDP.internal_policy = lambda obs: discreteAgent.predict(obs)[0]
+    agent = HybridPolicy(
+        discreteAgent=discreteAgent,
+        continuousAgent=continuousAgent,
+        name=f"{discreteAlg}-{continuousAlg}",
+        env_name=env_name,
+        seed=seed,
+    )
     return agent
 
 

@@ -29,54 +29,44 @@ _device_logged = False
 @hydra.main(version_base=None, config_path="config", config_name="sarl")
 def main(job_config: DictConfig):
     # Identify relevant script
-    from sarl.snippets.pdqn_use import (
-        pdqn_platform,
-        pdqn_goal,
-    )  # TODO: Refactor to avoid script-per-combination
-    from sarl.snippets.qpamdp_use import qpamdp_platform, qpamdp_goal
     from sarl.snippets.converter_use import (
+        a2c_a2c_goal,
+        a2c_a2c_platform,
+        a2c_ddpg_goal,
+        a2c_ddpg_platform,
+        a2c_ppo_goal,
+        a2c_ppo_platform,
+        a2c_sac_goal,
+        a2c_sac_platform,
+        a2c_td3_goal,
+        a2c_td3_platform,
+        dqn_a2c_goal,
+        dqn_a2c_platform,
+        dqn_ddpg_goal,
+        dqn_ddpg_platform,
+        dqn_ppo_goal,
+        dqn_ppo_platform,
+        dqn_sac_goal,
+        dqn_sac_platform,
+        dqn_td3_goal,
+        dqn_td3_platform,
+        ppo_a2c_goal,
+        ppo_a2c_platform,
+        ppo_ddpg_goal,
+        ppo_ddpg_platform,
+        ppo_ppo_goal,
+        ppo_ppo_platform,
+        ppo_sac_goal,
+        ppo_sac_platform,
+        ppo_td3_goal,
+        ppo_td3_platform,
         runConverter,
     )  # TODO: Use this via the partial method
-    from sarl.snippets.converter_use import (
-        ppo_ppo_platform,
-        a2c_ppo_platform,
-        dqn_ppo_platform,
-        ppo_ppo_goal,
-        a2c_ppo_goal,
-        dqn_ppo_goal,
-    )
-    from sarl.snippets.converter_use import (
-        ppo_a2c_platform,
-        a2c_a2c_platform,
-        dqn_a2c_platform,
-        ppo_a2c_goal,
-        a2c_a2c_goal,
-        dqn_a2c_goal,
-    )
-    from sarl.snippets.converter_use import (
-        ppo_ddpg_platform,
-        a2c_ddpg_platform,
-        dqn_ddpg_platform,
-        ppo_ddpg_goal,
-        a2c_ddpg_goal,
-        dqn_ddpg_goal,
-    )
-    from sarl.snippets.converter_use import (
-        ppo_sac_platform,
-        a2c_sac_platform,
-        dqn_sac_platform,
-        ppo_sac_goal,
-        a2c_sac_goal,
-        dqn_sac_goal,
-    )
-    from sarl.snippets.converter_use import (
-        ppo_td3_platform,
-        a2c_td3_platform,
-        dqn_td3_platform,
-        ppo_td3_goal,
-        a2c_td3_goal,
-        dqn_td3_goal,
-    )
+    from sarl.snippets.pdqn_use import (
+        pdqn_goal,
+        pdqn_platform,
+    )  # TODO: Refactor to avoid script-per-combination
+    from sarl.snippets.qpamdp_use import qpamdp_goal, qpamdp_platform
 
     try:
         chosen_script = {  # (Dict mapping config terms to functions)
