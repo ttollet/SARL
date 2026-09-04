@@ -30,7 +30,7 @@ def _pad_action(act, act_param):
     return (act, params)
 
 
-def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
+def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent, wandb_run):
     returns = []
     for i in tqdm(range(eval_episodes), desc="Evaluating"):
         (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
@@ -52,10 +52,13 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
         header='"training_timesteps","mean_eval_episode_return"',
         delimiter=',', fmt="%1.3f"
     )
+    print(f"[OUTPUT]: Attempting save to Weights & Biases")
+    if wandb_run is not None:
+        wandb_run.log({"training_timesteps": mean_return[0], "mean_return": mean_return[1]})
     return evaluation_returns
 
 
-def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None, eval_env=None, eval_episodes=None):
+def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, reward_scale=1, output_dir=None, eval_env=None, eval_episodes=None, wandb_run=None):
     '''Train to output a list of returns by timestep.'''
     total_timesteps = train_episodes
     if eval_episodes is None:
@@ -113,8 +116,8 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
             if (training_timesteps + 1) % EVAL_FREQ == 0:
             # writer.add_scalar("Return", info["episode"]["r"], episode_index)
             # if (episode_index + 1) % EVAL_FREQ == 0:
-                evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
-    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+                evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent, wandb_run)
+    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent, wandb_run)
     env.close()
     if output_dir:
         pass
@@ -124,7 +127,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, pad_action, 
     return returns
 
 
-def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None):
+def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None, wandb_run=None):
     '''P-DQN agent learns Platform'''
     for seed in tqdm(seeds):
         # Environment initialisation
@@ -182,14 +185,14 @@ def pdqn_platform(train_episodes=2500, max_steps=250, seeds=[1], output_dir=True
         # agent.set_action_parameter_passthrough_weights(initial_weights, initial_bias)
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, wandb_run=wandb_run)
         env.close()
         eval_env.close()
         return returns
 
 
 
-def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None):
+def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, learning_steps=None, cycles=None, eval_episodes=None, wandb_run=None):
     '''P-DQN agent learns Goal'''
     for seed in seeds:
 
@@ -253,7 +256,7 @@ def pdqn_goal(train_episodes=5000, max_steps=150, seeds=[1], output_dir=True, le
         print(agent)
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, _pad_action, reward_scale, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, wandb_run=wandb_run)
         env.close()
         eval_env.close()
         return returns

@@ -14,13 +14,14 @@ class HybridPolicy:
     # TODO: Consider inheriting from SB3 equivalent base class
     def __init__(self, discretePolicy=None, continuousPolicy=None,
         discreteAgent=None, continuousAgent=None, name=None, env_name=None,
-        seed=None) -> None:
+        seed=None, wandb_run=None) -> None:
         self.agent = {key: None for key in ["discrete", "continuous"]}
         self.name = name
         self.timestep = None
         self.cycle = None
         self.env_name = env_name
         self.seed = seed
+        self.wandb_run = wandb_run
 
         if discretePolicy is not None:
             self.discretePolicy = discretePolicy
@@ -49,7 +50,7 @@ class HybridPolicy:
                 episode_over = terminated or truncated
             returns.append(info["episode"]["r"])
         mean_return = (timestep, np.mean(returns))
-        evaluation_returns.append(mean_return)
+        evaluation_returns.append(mean_return)  # TODO: SAVE THIS TO WANDB
         file_name = f"{log_dir}/eval.csv"
         print(f"[REWARD]: Mean reward = {mean_return[1]}")
         print(f"[OUTPUT]: Writing to {file_name}")
@@ -57,6 +58,9 @@ class HybridPolicy:
             header='"training_timesteps","mean_eval_episode_return"',
             delimiter=',', fmt="%1.3f"
         )
+        print(f"[OUTPUT]: Attempting save to Weights & Biases")
+        if self.wandb_run is not None:
+            self.wandb_run.log({"training_timesteps": mean_return[0], "mean_return": mean_return[1]})
         return evaluation_returns  # List of tuples (training_timesteps, mean_eval_episode_return)
 
 

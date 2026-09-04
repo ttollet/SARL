@@ -35,7 +35,7 @@ def _make_env(env_name: str, max_steps: int, seed: int):
     return env
 
 
-def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent):
+def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, seed, agent, wandb_run):
     returns = []
     for i in range(eval_episodes):
         (obs, steps), info = eval_env.reset(seed=seed+timestep+i)
@@ -56,10 +56,13 @@ def _evaluate(eval_env, evaluation_returns, eval_episodes, log_dir, timestep, se
         header='"training_timesteps","mean_eval_episode_return"',
         delimiter=',', fmt="%1.3f"
     )
+    print(f"[OUTPUT]: Attempting save to Weights & Biases")
+    if wandb_run is not None:
+        wandb_run.log({"training_timesteps": mean_return[0], "mean_return": mean_return[1]})
     return evaluation_returns
 
 
-def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, eval_env, eval_episodes, learning_steps):
+def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, eval_env, eval_episodes, learning_steps, wandb_run):
     # NB train_episodes redundant, replaced with learning_steps
     if eval_episodes is None:
         eval_episodes = 15
@@ -77,7 +80,7 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, 
     new_info = agent.learn(env, eps_between_evals, max_steps)
     info_per_episode = info_per_episode + new_info
     training_timesteps = agent.training_timesteps
-    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+    evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent, wandb_run)
 
     # Complete the training loop
     # for i in range(evaluations-1):
@@ -85,14 +88,14 @@ def _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir, 
         new_info = agent.learn(env, eps_between_evals, max_steps, resume=True)  # Ensure train_eps >> initial_action_learning_episodes
         info_per_episode = info_per_episode + new_info
         training_timesteps = agent.training_timesteps
-        evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent)
+        evaluation_returns = _evaluate(eval_env, evaluation_returns, eval_episodes, output_dir, training_timesteps, seed, agent, wandb_run)
         # if agent.training_timesteps > learning_steps:
         #     break
     returns = [info["episode"]["r"] for info in info_per_episode]
     return returns
 
 
-def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
+def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None, wandb_run=None):
     '''Q-PAMDP agent learns Platform'''
     if len(seeds) > 1:
         raise ValueError("Only one seed is supported per QPAMDP call")
@@ -142,7 +145,7 @@ def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None
             agent.parameter_weights[a][0, 0] = initial_params[a]
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps, wandb_run=wandb_run)
         # info_per_episode = agent.learn(env, train_episodes, max_steps)
         # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()
@@ -150,7 +153,7 @@ def qpamdp_platform(train_episodes=20, max_steps=201, seeds=[1], output_dir=None
         return returns
 
 
-def qpamdp_goal(train_episodes=4000, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None):
+def qpamdp_goal(train_episodes=4000, max_steps=201, seeds=[1], output_dir=None, learning_steps=None, cycles=None, eval_episodes=None, wandb_run=None):
     '''Q-PAMDP agent learns Goal'''
     if len(seeds) > 1:
         raise ValueError("Only one seed is supported per QPAMDP call")
@@ -216,7 +219,7 @@ def qpamdp_goal(train_episodes=4000, max_steps=201, seeds=[1], output_dir=None, 
                             )
 
         # Training
-        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps)
+        returns = _get_training_info(train_episodes, agent, env, max_steps, seed, output_dir=output_dir, eval_env=eval_env, eval_episodes=eval_episodes, learning_steps=learning_steps, wandb_run=wandb_run)
         # info_per_episode = agent.learn(env, train_episodes, max_steps)
         # returns = [info["episode"]["r"] for info in info_per_episode]
         env.close()

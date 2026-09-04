@@ -16,6 +16,7 @@ from omegaconf import DictConfig
 import warnings
 import logging
 from stable_baselines3.common.utils import get_device
+import wandb
 
 # Suppress unnecessary warnings for cleaner output
 warnings.filterwarnings("ignore", category=UserWarning, module="gymnasium")
@@ -91,6 +92,10 @@ def main(job_config: DictConfig):
     except:
         raise NotImplementedError
 
+    # Use Weights & Biases to log data and job config
+    # wandb_run = wandb.init(entity="ttollet", project="sarl", config=job_config)
+    wandb_run = None
+
     # enable useful log messages, saved to /outputs
     global _device_logged
     hydra_config = HydraConfig.get()
@@ -109,12 +114,10 @@ def main(job_config: DictConfig):
     )  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
 
-    # def toy_func_to_optimise():  # TODO: Replace with mean & std reward
-    #     alg_params = job_config["parameters"]["alg_params"]
-    #     print(alg_params)
-    #     return -((alg_params["discrete_learning_rate"] - 0.5) ** 2)
-    # return toy_func_to_optimise()
-    return chosen_script(**job_config["parameters"], output_dir=output_dir)
+    chosen_script(**job_config["parameters"], output_dir=output_dir, wandb_run=wandb_run)
+    if wandb_run:
+        assert False  # TODO: Remove
+        wandb_run.finish()
 
 
 if __name__ == "__main__":

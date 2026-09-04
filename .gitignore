@@ -177,6 +177,7 @@ sarl/scripts/ax/submitit/
 *.out
 *.err
 meeting-prep/*
+devnotes/*
 
 # Ax runs
 sarl/scripts/ax/runs/
