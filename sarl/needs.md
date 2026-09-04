@@ -8,7 +8,7 @@ loss per trial: client.csv
 - PPO-PPO-Platform has an estimated best hyperparameters for discrete & cont., and also a baseline
 ## depends on 
 - [x] SARL/sarl/scripts/ax/main.py runs without error
-- [ ] SARL/sarl/scripts/ax/main.py produces expected output still
+- [x] SARL/sarl/scripts/ax/main.py produces expected output still
 - [ ] Git push locallly, then pull on HEC
 - NB: Number of trials (`MAX_TRIALS`) & episodes per trials (`TRAIN_EPISODES`) are specified in config.py
 - [ ] Decide choice of above constants
@@ -18,3 +18,8 @@ AFTER HEC
 - [ ] Ensure train.py can specify hyp.params.
 - [ ] Collect full runs of optimised hyp.params.
 - [ ] Collect baselines
+
+LOW PRIORITY
+- [ ] Confirm max_trials is enforced on Ax
+- [ ] Address Grid Search deprecation
+
