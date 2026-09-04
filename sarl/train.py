@@ -114,10 +114,13 @@ def main(job_config: DictConfig):
     )  # See /.hydra in relevant folder for config
     logger.info(f"Writing to {output_dir}")
 
-    chosen_script(**job_config["parameters"], output_dir=output_dir, wandb_run=wandb_run)
+    script_output = chosen_script(**job_config["parameters"], output_dir=output_dir, wandb_run=wandb_run)
+
     if wandb_run:
         assert False  # TODO: Remove
         wandb_run.finish()
+
+    return script_output
 
 
 if __name__ == "__main__":
