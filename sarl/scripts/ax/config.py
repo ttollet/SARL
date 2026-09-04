@@ -44,7 +44,7 @@ MAX_TRIALS_TEST = 3
 
 LS_PROPER = 30_000  # Change from 80_000
 CYC_PROPER = 4  # Change from 16
-NUM_SEEDS = 1  # Consider 2, not too high as BO handles noise well
+NUM_SEEDS = 2  # Consider 2, not too high as BO handles noise well  # WARN: Setting to 1 may cause issues with calculating SEM
 MAX_TRIALS = 500  # Change from 1
 
 PARALLEL_LIMIT = (
