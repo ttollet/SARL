@@ -235,6 +235,12 @@ def runConverter(
     sem = np.std(mean_rewards, ddof=1) / np.sqrt(
         len(mean_rewards)
     )  # Standard Error of the Mean
+    # file_name = f"{origin_log_dir}/final_eval.csv"
+    # eval_content = [(_mean, _sem) for _mean, _sem in zip(mean, sem)]
+    # np.savetxt(fname=file_name, X=np.array(eval_content),
+    #     header='"training_timesteps","mean_eval_episode_return"',
+    #     delimiter=',', fmt="%1.3f"
+    # )
     return (mean, sem)
 
 

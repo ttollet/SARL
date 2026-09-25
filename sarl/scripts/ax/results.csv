@@ -1,0 +1,3 @@
+optim,trials,trial_seen,disc_alg,cont_alg,disc_lr,cont_lr,update_ratio,mean_reward
+true,200,82,ppo,ppo,0.0022829269496250494,0.0007838203195657262,0.3323672795687193,0.37011805
+false,n/a,n/a,ppo,ppo,0.1,0.1,0.5

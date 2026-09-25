@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 import numpy as np
@@ -49,15 +50,22 @@ class HybridPolicy:
                 obs, reward, terminated, truncated, info = eval_mdp.step(action)
                 episode_over = terminated or truncated
             returns.append(info["episode"]["r"])
-        mean_return = (timestep, np.mean(returns))
+        mean_return = (timestep, np.mean(returns), self.seed)
         evaluation_returns.append(mean_return)  # TODO: SAVE THIS TO WANDB
-        file_name = f"{log_dir}/eval.csv"
+        file_name = f"{log_dir}/seed{self.seed}_eval.csv"
+        agg_file_name = f"{log_dir}/final_eval.csv"
         print(f"[REWARD]: Mean reward = {mean_return[1]}")
         print(f"[OUTPUT]: Writing to {file_name}")
         np.savetxt(fname=file_name, X=np.array(evaluation_returns),
-            header='"training_timesteps","mean_eval_episode_return"',
+            header='"training_timesteps","mean_eval_episode_return", "seed"',
             delimiter=',', fmt="%1.3f"
         )
+        is_new_file = not os.path.exists(agg_file_name)
+        with open(agg_file_name, "ab") as f:
+            np.savetxt(fname=f, X=np.array(evaluation_returns),
+                header='"training_timesteps","mean_eval_episode_return", "seed"' if is_new_file else '',
+                delimiter=',', fmt="%1.3f", comments=''
+            )
         print(f"[OUTPUT]: Attempting save to Weights & Biases")
         if self.wandb_run is not None:
             self.wandb_run.log({"training_timesteps": mean_return[0], "mean_return": mean_return[1]})

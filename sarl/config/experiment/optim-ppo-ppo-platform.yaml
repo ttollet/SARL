@@ -25,9 +25,9 @@ parameters:
     - 15
   eval_episodes: 250
   alg_params:
-    discrete_learning_rate: 0.001516505274994594
-    continuous_learning_rate: 0.001636683190719538
-    update_ratio: 0.37200894173352594
+    discrete_learning_rate: 0.0022829269496250494
+    continuous_learning_rate: 0.0007838203195657262
+    update_ratio: 0.3323672795687193
     on_policy_params:
       n_steps: 2048
 
