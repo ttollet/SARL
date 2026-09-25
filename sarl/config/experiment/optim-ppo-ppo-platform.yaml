@@ -5,8 +5,8 @@ environment: platform
 parameters:
   # train_episodes: 300032 #250 # default: 2500; used only by temp_pdqn.py
   max_steps: 500 #250
-  learning_steps: 30000 #300032 #400000  # Multiple of on_policy_params.n_steps
-  cycles: 4 #20 # Factor of learning_steps
+  learning_steps: 60000 #300032 #400000  # Multiple of on_policy_params.n_steps
+  cycles: 8 #20 # Factor of learning_steps
   seeds:
     - 1
     - 2
@@ -23,6 +23,21 @@ parameters:
     - 13
     - 14
     - 15
+    - 16
+    - 17
+    - 18
+    - 19
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+    - 28
+    - 29
+    - 30
   eval_episodes: 250
   alg_params:
     discrete_learning_rate: 0.0022829269496250494
