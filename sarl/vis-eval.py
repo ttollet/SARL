@@ -8,9 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 parser = ArgumentParser(prog='vis-eval', description='Visualise eval.csv files.')
-parser.add_argument('filepath')
-
+parser.add_argument('filepaths', nargs='+')
 args = parser.parse_args()
-timesteps, reward = np.loadtxt(args.filepath, delimiter=',', unpack=True)
-plt.plot(timesteps, reward)
+
+fig, ax = plt.subplots()
+for fp in args.filepaths:
+    timesteps, reward = np.loadtxt(fp, delimiter=',', unpack=True)
+    ax.plot(timesteps, reward)
 plt.show()
