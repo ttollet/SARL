@@ -27,7 +27,7 @@ def get_run_path(run_type: str, run_scale: str, run_state: str = "incomplete") -
 cluster = "debug" if LOCAL_DEBUG_MODE else "slurm"
 CPU_CORES_PER_TASK = 1
 HYDRA_CONFIG_PATH = "../../config"
-TRAIN_EPISODES = 40_000
+TRAIN_EPISODES = 40_000  # INFO: Part of Hydra Config
 ON_POLICY_PARAMS = {"n_steps": 100}
 
 BOUNDS_LR = (1e-8, 1e-1)
@@ -43,8 +43,8 @@ NUM_SEEDS_DEBUG = 2  # Consider 2, not too high as BO handles noise well
 assert NUM_SEEDS_DEBUG >= 2
 MAX_TRIALS_TEST = 3
 
-LS_PROPER = 30_000  # Change from 80_000
-CYC_PROPER = 4  # Change from 16
+LS_PROPER = 30_000  # Change from 80_000  # INFO: Part of Hydra Config
+CYC_PROPER = 4  # Change from 16  # INFO: Part of Hydra Config
 NUM_SEEDS = 2  # Consider 2, not too high as BO handles noise well  # WARN: Setting to 1 may cause issues with calculating SEM
 assert NUM_SEEDS >= 2
 MAX_TRIALS = 500  # Change from 1

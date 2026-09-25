@@ -1,0 +1,43 @@
+# @package _global_
+algorithm: ppo-ppo
+environment: platform
+
+parameters:
+  # train_episodes: 300032 #250 # default: 2500; used only by temp_pdqn.py
+  max_steps: 500 #250
+  learning_steps: 30000 #300032 #400000  # Multiple of on_policy_params.n_steps
+  cycles: 4 #20 # Factor of learning_steps
+  seeds:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+  eval_episodes: 250
+  alg_params:
+    discrete_learning_rate: 0.001516505274994594
+    continuous_learning_rate: 0.001636683190719538
+    update_ratio: 0.37200894173352594
+    on_policy_params:
+      n_steps: 2048
+
+verbose: info
+hydra:
+  job:
+    name: optim-ppo-ppo-platform
+  run:
+    # dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S_}${hydra.job.name}
+  runtime:
+    # dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+    output_dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S_}${hydra.job.name}
